@@ -1,0 +1,92 @@
+---
+title: "Errors & rate limits"
+description: "Error shape, HTTP status mapping, retry policy."
+icon: "triangle-exclamation"
+---
+
+## Error response shape
+
+All `/api/v1/*` errors return JSON with this shape:
+
+```json
+{
+  "error": "Human-readable message",
+  "error_type": "token_expired"
+}
+```
+
+Some errors carry extra fields:
+
+- **`actionable: true`** — the user can fix the cause themselves. Always present
+  with a `hint`. Example: a LinkedIn token expired in MagicPost.
+- **`hint: "Tell the user to reconnect LinkedIn from MagicPost > Settings"`** —
+  the exact message to surface in your UI / LLM conversation.
+- **`existing: [...]`** — present on schedule warnings; the list of posts
+  already on the same day or in the same slot.
+
+## Error type catalog
+
+| `error_type` | HTTP | What it means |
+|---|---|---|
+| `auth_required` | 401 | No Bearer token, or token doesn't start with `mp_` |
+| `auth_unavailable` | 503 | Auth service degraded (Supabase outage). Transient — retry with backoff. |
+| `user_not_found` | 401 | Token shape OK but unknown / revoked |
+| `rate_limited` | 429 | Too many requests in the current 1-minute window. See [rate limits](#rate-limits). |
+| `missing_data` | 400 | Required input field absent (e.g. `at_iso` for schedule) |
+| `empty_content` | 400 | Post content is empty / whitespace only |
+| `post_not_found` | 404 | Post doesn't exist OR is owned by another user. Both surface as 404 to avoid leaking ownership. |
+| `token_expired` | 400 | LinkedIn OAuth token (NOT your MagicPost PAT) expired. `actionable: true` — user must reconnect LinkedIn. |
+| `failed_tag` | 400 | One or more `@mentions` in the post can't be tagged (LinkedIn privacy settings). |
+| `too_late` | 400 | Trying to schedule more than 6 months in the future |
+| `already_published` | 409 | Trying to cancel-schedule or republish a post that already went out |
+| `db_error` | 500 | Internal DB issue. Detail in our logs / Slack, not exposed in response. |
+| `unknown_error` | 500 | Anything we didn't anticipate. Tracked in Sentry on our side. |
+| `network_error` | (varies) | The MCP server couldn't reach our API. Surfaced by the MCP tool layer, not by the API itself. |
+
+## Schedule warnings — not errors
+
+These are returned as HTTP **200** with `success: false`. They're informational,
+not failures:
+
+| `warning` | When |
+|---|---|
+| `same_day_posts` | At least one other post is scheduled the same day in the user's timezone |
+| `exact_slot_conflict` | Another post is scheduled within ±5 minutes of the target slot (stronger signal) |
+
+To proceed despite the warning, re-call with `confirm_same_day: false` (and/or
+`confirm_exact_slot: false`).
+
+## Rate limits
+
+Per-PAT, per-minute, fixed window:
+
+| Class | Limit | Endpoints |
+|---|---|---|
+| Default | **60 req / min** | Everything by default |
+| Expensive | **5 req / min** | `/api/v1/refresh-posts` (hits LinkedIn) |
+
+When you exceed the limit, you get HTTP 429 with:
+
+```json
+{
+  "error": "Rate limit exceeded (60 req/min for this endpoint class)",
+  "error_type": "rate_limited",
+  "current_count": 61,
+  "limit": 60,
+  "hint": "Wait until the start of the next minute and retry."
+}
+```
+
+The window resets at the start of every wall-clock minute.
+
+## Retry policy
+
+| Error | Retry? |
+|---|---|
+| `network_error` | Yes — exponential backoff, up to 2 retries |
+| 5xx (`db_error`, `unknown_error`, `auth_unavailable`) | Yes — backoff |
+| `rate_limited` | Yes, after waiting until the next minute |
+| 4xx (everything else) | **No** — the request is wrong, retrying won't help |
+
+The MCP server already implements this policy internally; your tools see only
+the final outcome.

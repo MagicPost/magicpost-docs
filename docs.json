@@ -1,0 +1,92 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "theme": "mint",
+  "name": "MagicPost Developers",
+  "colors": {
+    "primary": "#7E4EFD",
+    "light": "#9B7AFC",
+    "dark": "#5C2EE0"
+  },
+  "favicon": "/favicon.svg",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Guides",
+        "groups": [
+          {
+            "group": "Getting started",
+            "pages": ["introduction", "quickstart"]
+          },
+          {
+            "group": "Essentials",
+            "pages": ["essentials/authentication", "essentials/errors"]
+          },
+          {
+            "group": "MCP integration",
+            "pages": [
+              "mcp/overview",
+              "mcp/setup-claude-desktop",
+              "mcp/setup-cursor",
+              "mcp/tools"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API reference",
+        "groups": [
+          {
+            "group": "Overview",
+            "pages": ["api-reference/overview"]
+          },
+          {
+            "group": "Endpoints",
+            "pages": [
+              "api-reference/api-keys",
+              "api-reference/metrics",
+              "api-reference/posts",
+              "api-reference/scheduling"
+            ]
+          }
+        ]
+      }
+    ],
+    "global": {
+      "anchors": [
+        {
+          "anchor": "Status",
+          "href": "https://status.magicpost.in",
+          "icon": "signal"
+        },
+        {
+          "anchor": "Support",
+          "href": "mailto:support@magicpost.in",
+          "icon": "envelope"
+        }
+      ]
+    }
+  },
+  "logo": {
+    "light": "/logo/light.svg",
+    "dark": "/logo/dark.svg"
+  },
+  "navbar": {
+    "links": [
+      {
+        "label": "App",
+        "href": "https://app.magicpost.in"
+      }
+    ],
+    "primary": {
+      "type": "button",
+      "label": "Create API key",
+      "href": "https://app.magicpost.in/account?tab=api-keys"
+    }
+  },
+  "footer": {
+    "socials": {
+      "x": "https://x.com/magicpost",
+      "linkedin": "https://linkedin.com/company/magicpost"
+    }
+  }
+}

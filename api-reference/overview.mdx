@@ -1,0 +1,66 @@
+---
+title: "Overview"
+description: "The MagicPost REST API — base URL, auth, response shape."
+icon: "code"
+---
+
+The MagicPost REST API powers both the MagicPost web app and the MCP server.
+Use it directly when you want to script MagicPost operations without an
+LLM in the loop.
+
+## Base URL
+
+```
+https://api.magicpost.in/api/v1
+```
+
+(Staging: `https://apistaging.magicpost.in/api/v1`)
+
+## Authentication
+
+All endpoints require a Bearer token in the `Authorization` header — see
+[Authentication](/essentials/authentication) for how to create one.
+
+```bash
+curl https://api.magicpost.in/api/v1/auth/verify \
+  -H "Authorization: Bearer mp_xxx"
+```
+
+There is one exception: the `/api/v1/api-keys/*` management endpoints (used
+by the MagicPost web UI) use **cookie session auth** instead. You can't use
+these from a script — generate keys from the web UI.
+
+## Response shape
+
+Success responses are tailored to each endpoint. Error responses follow a
+common shape — see [Errors](/essentials/errors).
+
+## Rate limits
+
+- **60 req/min** per token by default
+- **5 req/min** per token on `/refresh-posts` (it hits LinkedIn)
+
+Window resets at the start of every wall-clock minute. Exceeding returns
+HTTP 429.
+
+## Endpoints
+
+<CardGroup cols={2}>
+  <Card title="API keys" icon="key" href="/api-reference/api-keys">
+    Manage your tokens. Cookie auth only.
+  </Card>
+  <Card title="Metrics" icon="chart-line" href="/api-reference/metrics">
+    Pull analytics summary, trigger refresh.
+  </Card>
+  <Card title="Posts" icon="file-pen" href="/api-reference/posts">
+    List, fetch, create, update, delete (soft).
+  </Card>
+  <Card title="Scheduling" icon="calendar" href="/api-reference/scheduling">
+    Schedule, cancel, publish-now.
+  </Card>
+</CardGroup>
+
+## OpenAPI
+
+An auto-generated OpenAPI 3 spec is in progress. In the meantime, the
+per-endpoint pages list path, method, params, and response shape.

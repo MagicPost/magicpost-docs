@@ -1,0 +1,96 @@
+---
+title: "Quickstart"
+description: "Connect Claude Desktop to your MagicPost account in 3 steps."
+icon: "play"
+---
+
+By the end of this page, Claude Desktop can list your scheduled posts, draft
+new ones, schedule them, and read your analytics — all from a normal
+conversation.
+
+## 1. Create an API key
+
+<Steps>
+  <Step title="Open Settings">
+    Sign in to [app.magicpost.in](https://app.magicpost.in/account) and go to
+    **Settings → API & MCP**.
+  </Step>
+  <Step title="Create a key">
+    Click **Create a key**, name it (e.g. `Claude Desktop`), and submit.
+  </Step>
+  <Step title="Copy the token">
+    The cleartext token (`mp_...`) is shown **exactly once**. Copy it now —
+    you won't be able to see it again. The reveal dialog also includes a
+    ready-to-paste `claude_desktop_config.json` snippet.
+  </Step>
+</Steps>
+
+## 2. Configure Claude Desktop
+
+<Steps>
+  <Step title="Open the config file">
+    Open `~/Library/Application Support/Claude/claude_desktop_config.json` on
+    macOS (or the equivalent on Windows/Linux).
+  </Step>
+  <Step title="Add the MCP server">
+    Paste this block (the create-key dialog has it pre-filled with your token):
+
+    ```json
+    {
+      "mcpServers": {
+        "magicpost": {
+          "command": "npx",
+          "args": [
+            "-y",
+            "mcp-remote",
+            "https://mcp.magicpost.in/mcp",
+            "--header",
+            "Authorization:Bearer mp_YOUR_TOKEN_HERE"
+          ]
+        }
+      }
+    }
+    ```
+
+    <Note>
+      Claude Desktop talks to MCP servers over stdio. `mcp-remote` is a tiny
+      npm bridge that proxies stdio ↔ HTTP so you can connect to remote MCP
+      servers. It runs locally and only forwards your requests.
+    </Note>
+  </Step>
+  <Step title="Restart Claude Desktop">
+    Fully quit (Cmd+Q on macOS, not just close the window) and relaunch.
+    A new MCP server `magicpost` should appear under the tools indicator.
+  </Step>
+</Steps>
+
+## 3. Try it
+
+In any conversation, ask things like:
+
+- *"List my scheduled posts on MagicPost"*
+- *"Summarize my LinkedIn analytics for the last 30 days"*
+- *"Create a draft: 'My first post via Claude'"*
+- *"Schedule post xyz for tomorrow 14:00"* (Claude will warn you if you already
+  have other posts that day before going through)
+
+If Claude says it doesn't have access to your data, the MCP server probably
+didn't load — check the config file syntax and that `mcp-remote` is reachable
+(your machine needs `npx`).
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="MCP tools" icon="wrench" href="/mcp/tools">
+    Full catalog of what the LLM can do.
+  </Card>
+  <Card title="Setup Cursor" icon="terminal" href="/mcp/setup-cursor">
+    Same backend, different MCP client.
+  </Card>
+  <Card title="Direct API" icon="code" href="/api-reference/overview">
+    Use curl or your own scripts.
+  </Card>
+  <Card title="Errors & rate limits" icon="triangle-exclamation" href="/essentials/errors">
+    What to handle, what to retry.
+  </Card>
+</CardGroup>

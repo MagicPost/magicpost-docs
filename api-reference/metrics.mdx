@@ -1,0 +1,106 @@
+---
+title: "Metrics"
+description: "Pull a compact analytics summary, trigger a fresh LinkedIn sync."
+icon: "chart-line"
+---
+
+## GET /api/v1/metrics/summary
+
+Compact KPI snapshot + top N posts by impressions.
+
+**Query params**
+
+| Param | Type | Default | Values |
+|---|---|---|---|
+| `period` | string | `30d` | `7d`, `30d`, `90d`, `180d`, `all` |
+| `top_n` | int | `5` | Clamped 1–20 |
+
+```bash
+curl "https://api.magicpost.in/api/v1/metrics/summary?period=30d&top_n=5" \
+  -H "Authorization: Bearer mp_xxx"
+```
+
+**Response**
+
+```json
+{
+  "period": "30d",
+  "profile": {
+    "name": "Naïlé Titah",
+    "headline": "CEO @MagicPost",
+    "followers_total": 24174
+  },
+  "access": {
+    "linkedin_connected": true,
+    "impressions_access": true
+  },
+  "totals": {
+    "posts_count": 10,
+    "impressions": 56147,
+    "likes": 740,
+    "comments": 319,
+    "reposts": 11
+  },
+  "averages_per_post": {
+    "impressions": 5614.7,
+    "likes": 74.0,
+    "comments": 31.9,
+    "reposts": 1.1
+  },
+  "top_posts": [
+    {
+      "urn": "urn:li:share:...",
+      "post_url": "https://linkedin.com/feed/update/urn:li:...",
+      "posted_at": "2026-05-12T07:30:00Z",
+      "text_preview": "First 200 chars of the post...",
+      "num_impressions": 12500,
+      "num_likes": 180,
+      "num_comments": 45,
+      "num_reposts": 3
+    }
+  ]
+}
+```
+
+## POST /api/v1/refresh-posts
+
+Trigger a fresh pull of LinkedIn data. **Rate-limited at 5 req/min.**
+
+```bash
+curl -X POST https://api.magicpost.in/api/v1/refresh-posts \
+  -H "Authorization: Bearer mp_xxx" \
+  -H "Content-Type: application/json" \
+  -d '{}'
+```
+
+**Response**
+
+```json
+{ "success": true, "job_id": "uuid", "status": "pending" }
+```
+
+Use the returned `job_id` to poll the status endpoint until completion.
+
+## GET /api/v1/refresh-posts/&lt;job_id&gt;
+
+Poll refresh job status.
+
+```bash
+curl https://api.magicpost.in/api/v1/refresh-posts/uuid \
+  -H "Authorization: Bearer mp_xxx"
+```
+
+**Response**
+
+```json
+{
+  "job_id": "uuid",
+  "processed": 50,
+  "total": 50,
+  "status": "finished",
+  "error": null
+}
+```
+
+`status` is one of `pending`, `running`, `finished`, `success`, `error`.
+Returns 404 if the job doesn't exist OR was started by another user.

@@ -1,0 +1,61 @@
+---
+title: "Cursor"
+description: "Connect Cursor to MagicPost via MCP."
+icon: "terminal"
+---
+
+Cursor 0.46+ ships with native MCP support. Both **stdio** and **streamable
+HTTP** transports are supported, so you have two options.
+
+## Option A — Native HTTP (recommended)
+
+<Steps>
+  <Step title="Open Cursor Settings">
+    Cursor → Settings → **Features** → **MCP** → **+ Add new MCP server**.
+  </Step>
+  <Step title="Fill the form">
+    | Field | Value |
+    |---|---|
+    | **Name** | `magicpost` |
+    | **Type** | `streamable-http` |
+    | **URL** | `https://mcp.magicpost.in/mcp` |
+    | **Headers** | `Authorization: Bearer mp_YOUR_TOKEN` |
+  </Step>
+  <Step title="Save and reload">
+    Cursor connects on save. You can see "8 tools loaded" in the server row.
+  </Step>
+</Steps>
+
+## Option B — stdio bridge (Cursor < 0.46)
+
+Same `mcp-remote` flow as [Claude Desktop](/mcp/setup-claude-desktop) — edit
+`~/.cursor/mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "magicpost": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-remote",
+        "https://mcp.magicpost.in/mcp",
+        "--header",
+        "Authorization:Bearer mp_YOUR_TOKEN"
+      ]
+    }
+  }
+}
+```
+
+## Use it from the chat
+
+Open the Cursor chat (`Cmd+L`), make sure **Composer + agent mode** is
+enabled, and ask:
+
+```
+Summarize my MagicPost LinkedIn analytics for the last 30 days
+```
+
+Cursor will prompt to approve the `get_metrics_summary` tool call (you can
+auto-approve from the same Settings panel if you want).

@@ -1,0 +1,117 @@
+---
+title: "Scheduling"
+description: "Schedule, cancel, publish-now."
+icon: "calendar"
+---
+
+## POST /api/v1/posts/&lt;post_id&gt;/schedule
+
+Schedule a post for future publication on LinkedIn.
+
+**Body**
+
+| Field | Type | Default | Description |
+|---|---|---|---|
+| `at_iso` | string | — | ISO 8601 datetime. Naive (no offset) = interpreted in user TZ. With offset = converted. |
+| `timezone` | string \| null | user's stored TZ | IANA name override (`Europe/Paris`) |
+| `confirm_same_day` | bool | `true` | Warn if other posts exist that day |
+| `confirm_exact_slot` | bool | `true` | Warn if ±5min slot conflict (stronger) |
+| `approved` | bool \| null | `null` | Org approval workflow state |
+
+```bash
+curl -X POST https://api.magicpost.in/api/v1/posts/uuid/schedule \
+  -H "Authorization: Bearer mp_xxx" \
+  -H "Content-Type: application/json" \
+  -d '{"at_iso": "2026-06-01T14:00", "timezone": "Europe/Paris"}'
+```
+
+### Success
+
+```json
+{
+  "success": true,
+  "utc_publish_date": "2026-06-01T12:00:00+00:00",
+  "failed_urns": []
+}
+```
+
+### Same-day warning (HTTP 200)
+
+When `confirm_same_day: true` and other posts exist that day:
+
+```json
+{
+  "success": false,
+  "warning": "same_day_posts",
+  "message": "User has 2 other post(s) scheduled on 2026-06-01 (Europe/Paris).",
+  "existing": [
+    { "post_id": "abc", "preview": "5 leçons…", "date_post": "2026-06-01", "hour_post": "09:00" },
+    { "post_id": "def", "preview": "Mon erreur…", "date_post": "2026-06-01", "hour_post": "18:00" }
+  ],
+  "hint": "Ask the user to confirm, then retry with confirm_same_day=false."
+}
+```
+
+Re-send the request with `confirm_same_day: false` to force through.
+
+### Exact-slot warning (HTTP 200)
+
+If another post is within ±5 min, this wins over `same_day_posts` (stronger signal):
+
+```json
+{
+  "success": false,
+  "warning": "exact_slot_conflict",
+  "existing": [...],
+  "hint": "..."
+}
+```
+
+### LinkedIn token expired
+
+```json
+{
+  "success": false,
+  "error_type": "token_expired",
+  "actionable": true,
+  "hint": "Tell the user to reconnect LinkedIn from MagicPost > Settings."
+}
+```
+
+### Other errors
+
+- `400 missing_data` — missing `at_iso`
+- `400 too_late` — more than 6 months in the future
+- `400 failed_tag` — `@mentions` couldn't be resolved (LinkedIn privacy)
+- `404 post_not_found` — IDOR or deleted
+
+## POST /api/v1/posts/&lt;post_id&gt;/cancel-schedule
+
+Cancel a scheduled post. Idempotent — returns success even if not scheduled.
+
+```bash
+curl -X POST https://api.magicpost.in/api/v1/posts/uuid/cancel-schedule \
+  -H "Authorization: Bearer mp_xxx"
+```
+
+**Responses**
+
+- `200 { "success": true }` — scheduled, now cancelled
+- `200 { "success": true, "already_unscheduled": true }` — wasn't scheduled
+- `409 already_published` — can't cancel, already on LinkedIn
+
+## POST /api/v1/posts/&lt;post_id&gt;/publish
+
+Publish a post **immediately**, regardless of any prior schedule.
+
+```bash
+curl -X POST https://api.magicpost.in/api/v1/posts/uuid/publish \
+  -H "Authorization: Bearer mp_xxx"
+```
+
+**Responses**
+
+- `200 { "success": true, ... }` — published, LinkedIn URL in response body
+- `400 token_expired` — `actionable: true` with reconnect hint
+- `409 already_published`
+- `404 post_not_found`

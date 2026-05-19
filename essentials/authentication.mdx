@@ -1,0 +1,124 @@
+---
+title: "Authentication"
+description: "Personal Access Tokens (PATs) — how they work, where to use them, how to revoke them."
+icon: "key"
+---
+
+Every call to `/api/v1/*` and every MCP tool invocation must carry a
+**Personal Access Token** (PAT) in the `Authorization` header:
+
+```bash
+Authorization: Bearer mp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+```
+
+## How tokens look
+
+Tokens are formatted as `mp_<32 random URL-safe bytes>` — about 43 characters
+after the prefix. The full token is shown **exactly once** in the UI at
+creation time and is never displayed again. Only its `prefix` (e.g.
+`mp_abc123`) and metadata (name, created date, last used) are kept visible
+afterwards.
+
+<Warning>
+Treat your tokens like passwords. Anyone with the token has the same access
+to your MagicPost account as you do via the API.
+</Warning>
+
+## Creating a token
+
+From the web app: **Settings → API & MCP → Create a key**.
+
+The dialog asks for an optional **name** (e.g. `Claude Desktop`, `My Cursor`,
+`Internal cron script`). The name has no functional effect — it just helps
+you tell tokens apart in the list and audit which integration was active when.
+
+You can hold up to **10 active tokens** per account. Revoked tokens don't
+count against the limit but remain visible in the history.
+
+## Using a token
+
+### With the MCP server
+
+In your MCP client config (Claude Desktop, Cursor, claude.ai), pass the token
+as a header via `mcp-remote`:
+
+```json
+{
+  "mcpServers": {
+    "magicpost": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-remote",
+        "https://mcp.magicpost.in/mcp",
+        "--header",
+        "Authorization:Bearer mp_YOUR_TOKEN"
+      ]
+    }
+  }
+}
+```
+
+### With the REST API
+
+Just add the header to every request:
+
+```bash
+curl https://api.magicpost.in/api/v1/auth/verify \
+  -H "Authorization: Bearer mp_YOUR_TOKEN"
+```
+
+```python
+import os, httpx
+client = httpx.Client(
+    base_url="https://api.magicpost.in/api/v1",
+    headers={"Authorization": f"Bearer {os.environ['MAGICPOST_TOKEN']}"},
+)
+client.get("/posts", params={"status": "scheduled"})
+```
+
+## Revoking a token
+
+In **Settings → API & MCP**, hit **Revoke** on the token row. The change
+propagates within **60 seconds** (the MCP server caches token validity for
+that long, so a revoked token may still work for up to a minute after
+revocation).
+
+Revocation is irreversible. The MCP integration that uses that token will
+start receiving 401 responses — create a new token to replace it.
+
+## Verifying a token
+
+The `GET /api/v1/auth/verify` endpoint is the canonical way to check whether
+a token is currently valid. It returns the user record id, email and granted
+scopes if the token is good:
+
+```bash
+curl https://api.magicpost.in/api/v1/auth/verify \
+  -H "Authorization: Bearer mp_xxx"
+```
+
+```json
+{
+  "user_record_id": "recXXXXXXX",
+  "email": "you@example.com",
+  "scopes": ["mcp:v1"]
+}
+```
+
+## Scopes
+
+All v1 tokens currently have a single scope: `mcp:v1`. It grants full access
+to every `/api/v1/*` endpoint of the owning user. Finer-grained scopes (e.g.
+read-only, or "post:write" only) will land in a future version — existing
+tokens will keep their full access at that point.
+
+## Token security checklist
+
+- ✅ Store tokens in env vars or secret managers, never in client-side code
+- ✅ Use a different token per device or integration so you can revoke
+  precisely if one leaks
+- ✅ Rotate tokens occasionally (every ~6 months for high-value automations)
+- ❌ Never commit tokens to git, even in a private repo
+- ❌ Never paste a token in a public log, screenshot, or support thread —
+  revoke and recreate if you suspect leak

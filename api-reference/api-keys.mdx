@@ -1,0 +1,89 @@
+---
+title: "API keys"
+description: "Manage your Personal Access Tokens. Cookie session auth only."
+icon: "key"
+---
+
+These endpoints power the **Settings → API & MCP** tab in the MagicPost web
+app. They use the existing cookie session, so they're **not callable from a
+script** — you can only manage your keys from the web UI.
+
+The endpoints are documented here for completeness.
+
+## GET /api/v1/api-keys
+
+List all your keys (active + revoked). Never returns clear tokens.
+
+**Response**
+
+```json
+{
+  "keys": [
+    {
+      "id": "uuid",
+      "prefix": "mp_abcdef",
+      "name": "Claude Desktop",
+      "scopes": ["mcp:v1"],
+      "created_at": "2026-05-18T18:29:29Z",
+      "last_used_at": "2026-05-18T18:29:42Z",
+      "revoked_at": null
+    }
+  ]
+}
+```
+
+## POST /api/v1/api-keys
+
+Create a new key. The clear token is returned **exactly once**.
+
+**Body**
+
+```json
+{ "name": "My Cursor" }
+```
+
+- `name` (optional, max 64 chars) — friendly identifier shown in the UI
+
+**Response** (HTTP 201)
+
+```json
+{
+  "key": { "id": "uuid", "prefix": "mp_xxx", "name": "My Cursor", ... },
+  "token": "mp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+}
+```
+
+Constraints:
+
+- Maximum **10 active keys** per user (revoked keys don't count)
+- Returns 400 if you hit the cap
+
+## DELETE /api/v1/api-keys/&lt;key_id&gt;
+
+Revoke a key. Idempotent; revoking an already-revoked key returns 404.
+
+**Response** (HTTP 200)
+
+```json
+{ "success": true }
+```
+
+Returns 404 if the key doesn't exist OR isn't owned by you (both surface as
+404 to avoid leaking ownership info).
+
+## GET /api/v1/auth/verify
+
+Validate a Bearer token. **PAT auth, not cookie auth** — this is the only
+key-management endpoint callable from a script.
+
+**Response**
+
+```json
+{
+  "user_record_id": "recXXXXXXX",
+  "email": "you@example.com",
+  "scopes": ["mcp:v1"]
+}
+```
+
+Returns 401 if the token is invalid or revoked.

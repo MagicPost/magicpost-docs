@@ -1,0 +1,61 @@
+---
+title: "Introduction"
+description: "MagicPost programmatic API and MCP server for LLM integrations."
+icon: "rocket"
+---
+
+MagicPost exposes a **public REST API** (`/api/v1/*`) and an **MCP server** so you
+can manage LinkedIn posts, schedule them, and pull analytics from any program
+or LLM client.
+
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="play" href="/quickstart">
+    Connect Claude Desktop to your MagicPost account in 3 steps.
+  </Card>
+  <Card title="MCP tools" icon="wrench" href="/mcp/tools">
+    The 8 tools available to your LLM client.
+  </Card>
+  <Card title="API reference" icon="code" href="/api-reference/overview">
+    Raw REST endpoints with curl examples.
+  </Card>
+  <Card title="Authentication" icon="key" href="/essentials/authentication">
+    How API keys work, scopes, rotation.
+  </Card>
+</CardGroup>
+
+## What you can do
+
+- **Schedule and publish posts** to LinkedIn (with same-day & exact-slot warnings)
+- **Pull a compact analytics summary** (top posts, totals, averages)
+- **List and edit your drafts**
+- **Trigger a fresh sync** of your LinkedIn data and wait for completion
+
+All operations are scoped to the authenticated user's own account — there is
+no cross-user access.
+
+## Two ways to use it
+
+<AccordionGroup>
+  <Accordion title="MCP — for LLM clients (Claude Desktop, Cursor, claude.ai)" icon="robot">
+    The MCP server at `mcp.magicpost.in` exposes the API as **tools** your LLM
+    can call. The recommended way for users who want to operate MagicPost from
+    inside a conversation.
+
+    [→ See MCP setup](/mcp/overview)
+  </Accordion>
+  <Accordion title="REST — for scripts, integrations, and SDKs" icon="terminal">
+    The same API is also reachable directly at `api.magicpost.in/api/v1/*`
+    with a `Bearer mp_*` token. Use this when you don't need an LLM in the
+    loop.
+
+    [→ See API reference](/api-reference/overview)
+  </Accordion>
+</AccordionGroup>
+
+## Status
+
+- **Base URL** (production): `https://api.magicpost.in`
+- **MCP endpoint**: `https://mcp.magicpost.in/mcp`
+- **Authentication**: Personal Access Tokens (PATs), generated from
+  [your account settings](https://app.magicpost.in/account?tab=api-keys)
+- **Versioning**: only `v1` exists today. Breaking changes will ship under `v2`.

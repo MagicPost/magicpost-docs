@@ -1,0 +1,96 @@
+---
+title: "MCP overview"
+description: "What the MagicPost MCP server is and how it fits into your LLM client."
+icon: "robot"
+---
+
+The MagicPost MCP server lets any [Model Context Protocol](https://modelcontextprotocol.io)
+client — Claude Desktop, Cursor, claude.ai, custom agents — operate your
+MagicPost account from within a conversation, without leaving the chat.
+
+## What it does
+
+- **Reads** your LinkedIn analytics, lists your scheduled and draft posts
+- **Writes** new drafts, schedules posts, cancels them, publishes them now
+- **Refreshes** your LinkedIn data and waits for completion
+
+It's a thin, stateless proxy over our [REST API](/api-reference/overview).
+Everything you can do with curl, you can do via the MCP — just from an LLM
+conversation.
+
+## Architecture
+
+```
+   ┌─────────────────────┐
+   │   MCP client        │  Claude Desktop, Cursor, claude.ai, ...
+   │  (your LLM tool)    │
+   └──────────┬──────────┘
+              │  HTTPS, Authorization: Bearer mp_*
+              ▼
+   ┌─────────────────────┐
+   │ mcp.magicpost.in    │  Validates the PAT (cached 60s),
+   │  (MCP server)       │  forwards calls to api.magicpost.in
+   └──────────┬──────────┘
+              │  HTTPS, same PAT
+              ▼
+   ┌─────────────────────┐
+   │ api.magicpost.in    │  Our Flask backend.
+   │  /api/v1/*          │  Runs your operation against Supabase,
+   └─────────────────────┘  Airtable, LinkedIn OAuth tokens, etc.
+```
+
+## Endpoint
+
+```
+https://mcp.magicpost.in/mcp
+```
+
+Transport: `streamable-http` (current MCP standard, stateless mode,
+JSON responses).
+
+## Available tools
+
+The server exposes 8 tools — see the full [catalog](/mcp/tools).
+
+<Frame>
+  <table>
+    <thead>
+      <tr><th>Tool</th><th>Purpose</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>`get_metrics_summary`</td><td>Top-line analytics + top posts</td></tr>
+      <tr><td>`refresh_my_posts`</td><td>Pull fresh LinkedIn data, wait for completion</td></tr>
+      <tr><td>`list_my_posts`</td><td>Drafts / scheduled / published</td></tr>
+      <tr><td>`get_post`</td><td>Single post details</td></tr>
+      <tr><td>`create_or_update_post`</td><td>New draft or edit content</td></tr>
+      <tr><td>`schedule_post`</td><td>Schedule with same-day & exact-slot warnings</td></tr>
+      <tr><td>`cancel_scheduled_post`</td><td>Idempotent un-schedule</td></tr>
+      <tr><td>`publish_post_now`</td><td>Immediate publish</td></tr>
+    </tbody>
+  </table>
+</Frame>
+
+## What it does NOT do (yet)
+
+- **Media uploads** (images, videos) — text-only for v1. Add media in the
+  MagicPost web UI after the LLM creates a draft.
+- **@mentions** that need LinkedIn tag resolution — the LLM cannot pick the
+  right LinkedIn profile from a name. Finalize @mentions in the web UI.
+- **Cross-user access** — every tool is scoped to your own account.
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Setup Claude Desktop" icon="message" href="/mcp/setup-claude-desktop">
+    The flagship LLM client.
+  </Card>
+  <Card title="Setup Cursor" icon="terminal" href="/mcp/setup-cursor">
+    Same backend, IDE workflow.
+  </Card>
+  <Card title="Tool catalog" icon="wrench" href="/mcp/tools">
+    Inputs, outputs, examples for the 8 tools.
+  </Card>
+  <Card title="API reference" icon="code" href="/api-reference/overview">
+    The REST endpoints behind the MCP.
+  </Card>
+</CardGroup>

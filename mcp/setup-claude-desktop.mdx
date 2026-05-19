@@ -1,0 +1,104 @@
+---
+title: "Claude Desktop"
+description: "Connect Claude Desktop to MagicPost in 3 steps."
+icon: "message"
+---
+
+Claude Desktop talks to MCP servers via stdio. Since MagicPost MCP is HTTP,
+we use the open-source [`mcp-remote`](https://www.npmjs.com/package/mcp-remote)
+bridge to convert stdio ↔ HTTP locally.
+
+## Prerequisites
+
+- macOS, Windows or Linux with Claude Desktop installed
+- [Node.js](https://nodejs.org) 18+ available on your PATH (`npx` needs it)
+- A MagicPost API key — see [creating a key](/essentials/authentication#creating-a-token)
+
+## Configure
+
+<Steps>
+  <Step title="Locate the config file">
+    | OS | Path |
+    |---|---|
+    | macOS | `~/Library/Application Support/Claude/claude_desktop_config.json` |
+    | Windows | `%APPDATA%\Claude\claude_desktop_config.json` |
+    | Linux | `~/.config/Claude/claude_desktop_config.json` |
+  </Step>
+  <Step title="Add the MCP server block">
+    Open the file (create it if missing) and add a `mcpServers` entry:
+
+    ```json
+    {
+      "mcpServers": {
+        "magicpost": {
+          "command": "npx",
+          "args": [
+            "-y",
+            "mcp-remote",
+            "https://mcp.magicpost.in/mcp",
+            "--header",
+            "Authorization:Bearer mp_YOUR_TOKEN_HERE"
+          ]
+        }
+      }
+    }
+    ```
+
+    <Tip>
+      When you create the key from
+      [Settings → API & MCP](https://app.magicpost.in/account?tab=api-keys),
+      the dialog includes a copy-paste-ready version of this exact snippet
+      with the token already filled in.
+    </Tip>
+  </Step>
+  <Step title="Fully quit and relaunch Claude Desktop">
+    On macOS, **Cmd+Q** (not just close window). MCP servers are only loaded
+    at startup.
+  </Step>
+</Steps>
+
+## Verify
+
+After relaunch, open a new conversation and click the tools indicator in the
+input bar. You should see `magicpost` listed with 8 tools available.
+
+Try:
+
+```
+List my scheduled posts on MagicPost
+```
+
+Claude will call `list_my_posts` and read back what's coming up.
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="The magicpost server doesn't appear in the tools list">
+    1. Open the Claude Desktop logs (Preferences → Developer → Open log directory)
+    2. Look for `mcp.log` or `claude_mcp.log`
+    3. Common causes:
+        - JSON syntax error in `claude_desktop_config.json` — validate it with `python -m json.tool claude_desktop_config.json`
+        - `npx` not on PATH — install Node via nvm or homebrew
+        - Network blocked — confirm you can `curl https://mcp.magicpost.in/.well-known/oauth-protected-resource`
+  </Accordion>
+  <Accordion title="Authentication error in the tool response">
+    The PAT is invalid or revoked. Generate a new one from
+    [Settings → API & MCP](https://app.magicpost.in/account?tab=api-keys)
+    and replace it in the config.
+  </Accordion>
+  <Accordion title="Claude says it cannot reach MagicPost">
+    The MCP bridge might have crashed silently. Restart Claude Desktop. If
+    the issue persists, run the bridge manually to see its output:
+
+    ```bash
+    npx -y mcp-remote https://mcp.magicpost.in/mcp \
+      --header "Authorization:Bearer mp_YOUR_TOKEN"
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Privacy
+
+`mcp-remote` runs on **your machine** and forwards calls to `mcp.magicpost.in`.
+Your token never leaves your machine via a third party. The MagicPost MCP
+server validates it and acts on your behalf.

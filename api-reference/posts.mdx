@@ -1,0 +1,101 @@
+---
+title: "Posts"
+description: "List, fetch, create, update your posts."
+icon: "file-pen"
+---
+
+## GET /api/v1/posts
+
+List your posts by lifecycle status.
+
+**Query params**
+
+| Param | Type | Default | Values |
+|---|---|---|---|
+| `status` | string | `scheduled` | `draft`, `scheduled`, `published` |
+| `limit` | int | `20` | Clamped 1–100 |
+| `offset` | int | `0` | Pagination |
+
+```bash
+curl "https://api.magicpost.in/api/v1/posts?status=scheduled&limit=10" \
+  -H "Authorization: Bearer mp_xxx"
+```
+
+**Response**
+
+```json
+{
+  "status": "scheduled",
+  "limit": 10,
+  "offset": 0,
+  "posts": [
+    {
+      "id": "uuid",
+      "post_content": "Multiple\n\nline post.",
+      "created_at": "2026-05-12T10:00:00Z",
+      "date_post": "2026-05-20",
+      "hour_post": "14:00",
+      "schedule_date": "2026-05-20T12:00:00Z",
+      "schedule_timezone": "Europe/Paris",
+      "planified_post": true,
+      "published_post": false,
+      "linked_in_url_post": null,
+      "word_count": 152,
+      "type": "Actionable",
+      "category": "Education",
+      "approved": null
+    }
+  ]
+}
+```
+
+## GET /api/v1/posts/&lt;post_id&gt;
+
+Fetch one post in full. 404 if not owned by you.
+
+```bash
+curl https://api.magicpost.in/api/v1/posts/uuid \
+  -H "Authorization: Bearer mp_xxx"
+```
+
+## POST /api/v1/posts
+
+Create a draft post.
+
+**Body**
+
+```json
+{ "content": "Hello LinkedIn world\n\nThis is line 2." }
+```
+
+- `content` (required) — post text. Line breaks (`\n`) are preserved verbatim
+  and rendered on LinkedIn.
+
+<Warning>
+Text only in v1. Add images, videos, polls and `@mentions` from the MagicPost
+web UI.
+</Warning>
+
+**Response** (HTTP 201)
+
+```json
+{ "success": true, "post_id": "new-uuid", "created": true }
+```
+
+## PATCH /api/v1/posts/&lt;post_id&gt;
+
+Update the content of an existing post.
+
+**Body**
+
+```json
+{ "content": "Updated text." }
+```
+
+**Response**
+
+```json
+{ "success": true, "post_id": "uuid", "created": false }
+```
+
+Returns 404 if you don't own the post (IDOR guard).

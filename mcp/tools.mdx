@@ -1,0 +1,181 @@
+---
+title: "Tools catalog"
+description: "The 8 MCP tools — inputs, outputs, examples."
+icon: "wrench"
+---
+
+<Note>
+  This page is auto-generated from the MCP server's `tools/list`. Run
+  `scripts/sync-tools.py` after backend changes to refresh it.
+</Note>
+
+## get_metrics_summary
+
+Get a compact summary of the user's LinkedIn analytics. Returns top-line
+totals (impressions, likes, comments, reposts) and the top N posts by
+impressions.
+
+**Use** when the user asks anything like *"how am I doing on LinkedIn?"*.
+
+| Input | Type | Default | Description |
+|---|---|---|---|
+| `period` | `'7d'\|'30d'\|'90d'\|'180d'\|'all'` | `'30d'` | Time window |
+| `top_n` | int | `5` | How many top posts to return (clamped 1–20) |
+
+**Output**
+
+```json
+{
+  "period": "30d",
+  "profile": {"name": "Naïlé Titah", "headline": "...", "followers_total": 24174},
+  "access": {"linkedin_connected": true, "impressions_access": true},
+  "totals": {"posts_count": 10, "impressions": 56147, "likes": 740, "comments": 319, "reposts": 11},
+  "averages_per_post": {"impressions": 5614.7, ...},
+  "top_posts": [{"urn": "...", "post_url": "...", "text_preview": "...", "num_impressions": 12500, ...}]
+}
+```
+
+---
+
+## refresh_my_posts
+
+Trigger a fresh pull of the user's LinkedIn posts and wait until done. Polls
+the job every 2 seconds.
+
+**Use** when the user explicitly asks to *"refresh"* or *"re-sync"* their
+analytics. Don't call this on every metrics question — `get_metrics_summary`
+reads from cached data which is enough most of the time.
+
+| Input | Type | Default | Description |
+|---|---|---|---|
+| `max_wait_seconds` | int | `90` | How long to keep polling before giving up |
+
+Returns `{success, job_id, status, detail}` on completion, or
+`{success: false, status: "timeout", ...}` if the job is still running past
+the deadline (it keeps running on the server).
+
+---
+
+## list_my_posts
+
+List the user's posts filtered by lifecycle status.
+
+| Input | Type | Default | Description |
+|---|---|---|---|
+| `status` | `'draft'\|'scheduled'\|'published'` | `'scheduled'` | Which posts to return |
+| `limit` | int | `20` | Page size (max 100) |
+| `offset` | int | `0` | Pagination offset |
+
+- **`draft`**: created but not scheduled, not yet published
+- **`scheduled`**: planified for the future, sorted by schedule date asc
+- **`published`**: already on LinkedIn, sorted by created_at desc
+
+---
+
+## get_post
+
+Fetch the full record for a single post owned by the user.
+
+| Input | Type | Description |
+|---|---|---|
+| `post_id` | string | The post UUID |
+
+Returns the post dict with all fields. Returns an error if the post doesn't
+exist or isn't owned by the authed user.
+
+---
+
+## create_or_update_post
+
+Create a new draft post (no `post_id`) or update an existing one's text.
+
+| Input | Type | Description |
+|---|---|---|
+| `content` | string | Post text content (line breaks preserved) |
+| `post_id` | string \| null | If set, update existing post; if null, create new |
+
+**Returns** `{success: true, post_id, created: bool}`. Use `post_id` (not
+`id`) when chaining into `schedule_post` or `publish_post_now`.
+
+<Warning>
+Text only in v1. Images, videos, polls, and @mentions must be added from the
+MagicPost web UI.
+</Warning>
+
+---
+
+## schedule_post
+
+Schedule a post for future publication on LinkedIn, with conflict warnings.
+
+| Input | Type | Default | Description |
+|---|---|---|---|
+| `post_id` | string | — | The post to schedule |
+| `at_iso` | string | — | ISO 8601 datetime (`2026-06-01T14:00` or `2026-06-01T14:00:00+02:00`) |
+| `timezone` | string \| null | user's stored tz | IANA tz name override |
+| `confirm_same_day` | bool | `true` | Warn if other posts exist that day |
+| `confirm_exact_slot` | bool | `true` | Warn if ±5min slot conflict |
+
+### Warning flow
+
+When `confirm_*: true` (default) and a conflict exists, the response is
+HTTP 200 with `success: false` and a `warning` field:
+
+```json
+{
+  "success": false,
+  "warning": "same_day_posts",
+  "message": "User has 2 other post(s) scheduled on 2026-06-01 (Europe/Paris).",
+  "existing": [
+    {"post_id": "abc", "preview": "5 leçons leadership…", "date_post": "2026-06-01", "hour_post": "09:00"},
+    {"post_id": "def", "preview": "Mon erreur en 2025…", "date_post": "2026-06-01", "hour_post": "18:00"}
+  ],
+  "hint": "Ask the user to confirm, then retry with confirm_same_day=false."
+}
+```
+
+The LLM should surface the warning to the user **verbatim** and only retry
+with `confirm_*: false` after explicit confirmation.
+
+`exact_slot_conflict` (within ±5 minutes) takes precedence over
+`same_day_posts` and is returned alone if both apply.
+
+### Token expired
+
+If the user's LinkedIn token expired, the response carries `actionable: true`
+and a `hint` — surface it to the user, don't retry blindly:
+
+```json
+{
+  "success": false,
+  "error_type": "token_expired",
+  "actionable": true,
+  "hint": "Tell the user to reconnect LinkedIn from MagicPost > Settings."
+}
+```
+
+---
+
+## cancel_scheduled_post
+
+Cancel a scheduled post. **Idempotent**: returns success even if the post
+is no longer scheduled (already published is a 409, see below).
+
+| Input | Type | Description |
+|---|---|---|
+| `post_id` | string | The post to un-schedule |
+
+Returns `409 already_published` if the post already went out.
+
+---
+
+## publish_post_now
+
+Publish a post to LinkedIn **immediately**, ignoring any prior schedule.
+
+| Input | Type | Description |
+|---|---|---|
+| `post_id` | string | The post to publish |
+
+Returns `409 already_published` if it's already on LinkedIn. On LinkedIn
+token expired, returns `actionable: true` with reconnect hint.
