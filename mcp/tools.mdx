@@ -9,146 +9,6 @@ icon: "wrench"
   `scripts/sync-tools.py` after backend changes to refresh it.
 </Note>
 
-## get_metrics_summary
-
-Get a compact summary of the user's LinkedIn analytics.
-
-Returns top-line totals (impressions, likes, comments, reposts) and the
-top N posts by impressions. Use `period` to scope the window. For most
-questions like "how did I perform recently?" use '30d'.
-
-| Input | Type | Default | Description |
-|---|---|---|---|
-| `period` | `string` | `'30d'` | Period |
-| `top_n` | `integer` | `5` | Top N |
-
-
----
-
-## refresh_my_posts
-
-Trigger a fresh pull of the user's LinkedIn posts and wait until done.
-
-Use this when the user explicitly asks to refresh their analytics. The
-tool polls the job status every 2 seconds until it completes or
-max_wait_seconds elapses. Default 90s is enough for typical refreshes.
-
-| Input | Type | Default | Description |
-|---|---|---|---|
-| `max_wait_seconds` | `integer` | `90` | Max Wait Seconds |
-
-
----
-
-## list_my_posts
-
-List the user's posts filtered by lifecycle status.
-
-- 'draft':     created but not scheduled and not yet published
-- 'scheduled': planified for future publication (sorted by schedule date asc)
-- 'published': already on LinkedIn (sorted by created_at desc)
-
-Default is 'scheduled' because the most common LLM-driven question is
-"what's coming up?". When the user asks about drafts or published
-posts explicitly, pass the matching status — do NOT rely on the
-default.
-
-| Input | Type | Default | Description |
-|---|---|---|---|
-| `status` | `string` | `'scheduled'` | Status |
-| `limit` | `integer` | `20` | Limit |
-| `offset` | `integer` | `0` | Offset |
-
-
----
-
-## get_post
-
-Fetch the full record for a single post owned by the user.
-
-| Input | Type | Default | Description |
-|---|---|---|---|
-| `post_id` | `string` | — | Post Id |
-
-
----
-
-## create_or_update_post
-
-Create a new draft post (no post_id) or update an existing one's text.
-
-Text content only — media (images/videos) must be added from the
-MagicPost web UI for v1. On success returns
-`{success: True, post_id, created: bool}` — use `post_id` (NOT `id`)
-when chaining into schedule_post or publish_post_now.
-
-| Input | Type | Default | Description |
-|---|---|---|---|
-| `content` | `string` | — | Content |
-| `post_id` | `any` | null | Post Id |
-
-
----
-
-## schedule_post
-
-Schedule a post for future publication on LinkedIn.
-
-- at_iso: ISO 8601 datetime. If naive (no offset), it is interpreted
-  in the user's timezone. If it has an offset, it is converted.
-- timezone: optional IANA tz name override (e.g. 'Europe/Paris').
-  Falls back to the user's stored timezone, then UTC.
-- confirm_same_day: when True (default), the call returns 200 with
-  `success: false, warning: 'same_day_posts'` if the user already has
-  other posts scheduled on the same day. Show the warning to the user,
-  and retry with confirm_same_day=false only after they confirm.
-- confirm_exact_slot: same behavior for posts scheduled within ±5
-  minutes (a stronger signal of a likely mistake). This check is
-  evaluated FIRST and short-circuits the same-day check, so an
-  exact-slot warning (`warning: 'exact_slot_conflict'`) will be
-  returned alone even if there are other same-day posts.
-
-When LinkedIn token is expired, returns `actionable: true` with a
-hint — surface it to the user verbatim, do not retry blindly.
-
-| Input | Type | Default | Description |
-|---|---|---|---|
-| `post_id` | `string` | — | Post Id |
-| `at_iso` | `string` | — | At Iso |
-| `timezone` | `any` | null | Timezone |
-| `confirm_same_day` | `boolean` | `true` | Confirm Same Day |
-| `confirm_exact_slot` | `boolean` | `true` | Confirm Exact Slot |
-
-
----
-
-## cancel_scheduled_post
-
-Cancel a scheduled post. Idempotent: returns success even if the
-post is no longer scheduled. Returns 409 if the post is already
-published (cannot un-publish).
-
-| Input | Type | Default | Description |
-|---|---|---|---|
-| `post_id` | `string` | — | Post Id |
-
-
----
-
-## publish_post_now
-
-Publish a post to LinkedIn immediately (no schedule).
-
-On LinkedIn token expired, returns `actionable: true` with a
-reconnect hint. Returns 409 if the post is already published.
-
-| Input | Type | Default | Description |
-|---|---|---|---|
-| `post_id` | `string` | — | Post Id |
-
-
----
-
 ## generate_post
 
 Generate a new LinkedIn post and persist it as a draft.
@@ -179,7 +39,7 @@ Writing style resolution
 - "Generate in the style of `<other person>`" — multi-step flow:
     1. Call list_my_writing_styles() to check if that person is already
        imported on the user's account.
-    2. If not, call find_writing_style_profile(`"<name or URL>"`) to
+    2. If not, call `find_writing_style_profile("<name or URL>")` to
        locate a candidate URN with metadata. Profiles with
        `ready_to_use=true` can be attached immediately.
     3. Call add_writing_style_profile(profile_url) to attach the
@@ -328,6 +188,146 @@ profile_url, valid_posts. Use the returned `urn` as
 
 ---
 
+## get_metrics_summary
+
+Get a compact summary of the user's LinkedIn analytics.
+
+Returns top-line totals (impressions, likes, comments, reposts) and the
+top N posts by impressions. Use `period` to scope the window. For most
+questions like "how did I perform recently?" use '30d'.
+
+| Input | Type | Default | Description |
+|---|---|---|---|
+| `period` | `string` | `'30d'` | Period |
+| `top_n` | `integer` | `5` | Top N |
+
+
+---
+
+## refresh_my_posts
+
+Trigger a fresh pull of the user's LinkedIn posts and wait until done.
+
+Use this when the user explicitly asks to refresh their analytics. The
+tool polls the job status every 2 seconds until it completes or
+max_wait_seconds elapses. Default 90s is enough for typical refreshes.
+
+| Input | Type | Default | Description |
+|---|---|---|---|
+| `max_wait_seconds` | `integer` | `90` | Max Wait Seconds |
+
+
+---
+
+## list_my_posts
+
+List the user's posts filtered by lifecycle status.
+
+- 'draft':     created but not scheduled and not yet published
+- 'scheduled': planified for future publication (sorted by schedule date asc)
+- 'published': already on LinkedIn (sorted by created_at desc)
+
+Default is 'scheduled' because the most common LLM-driven question is
+"what's coming up?". When the user asks about drafts or published
+posts explicitly, pass the matching status — do NOT rely on the
+default.
+
+| Input | Type | Default | Description |
+|---|---|---|---|
+| `status` | `string` | `'scheduled'` | Status |
+| `limit` | `integer` | `20` | Limit |
+| `offset` | `integer` | `0` | Offset |
+
+
+---
+
+## get_post
+
+Fetch the full record for a single post owned by the user.
+
+| Input | Type | Default | Description |
+|---|---|---|---|
+| `post_id` | `string` | — | Post Id |
+
+
+---
+
+## create_or_update_post
+
+Create a new draft post (no post_id) or update an existing one's text.
+
+Text content only — media (images/videos) must be added from the
+MagicPost web UI for v1. On success returns
+`{success: True, post_id, created: bool}` — use `post_id` (NOT `id`)
+when chaining into schedule_post or publish_post_now.
+
+| Input | Type | Default | Description |
+|---|---|---|---|
+| `content` | `string` | — | Content |
+| `post_id` | `any` | null | Post Id |
+
+
+---
+
+## schedule_post
+
+Schedule a post for future publication on LinkedIn.
+
+- at_iso: ISO 8601 datetime. If naive (no offset), it is interpreted
+  in the user's timezone. If it has an offset, it is converted.
+- timezone: optional IANA tz name override (e.g. 'Europe/Paris').
+  Falls back to the user's stored timezone, then UTC.
+- confirm_same_day: when True (default), the call returns 200 with
+  `success: false, warning: 'same_day_posts'` if the user already has
+  other posts scheduled on the same day. Show the warning to the user,
+  and retry with confirm_same_day=false only after they confirm.
+- confirm_exact_slot: same behavior for posts scheduled within ±5
+  minutes (a stronger signal of a likely mistake). This check is
+  evaluated FIRST and short-circuits the same-day check, so an
+  exact-slot warning (`warning: 'exact_slot_conflict'`) will be
+  returned alone even if there are other same-day posts.
+
+When LinkedIn token is expired, returns `actionable: true` with a
+hint — surface it to the user verbatim, do not retry blindly.
+
+| Input | Type | Default | Description |
+|---|---|---|---|
+| `post_id` | `string` | — | Post Id |
+| `at_iso` | `string` | — | At Iso |
+| `timezone` | `any` | null | Timezone |
+| `confirm_same_day` | `boolean` | `true` | Confirm Same Day |
+| `confirm_exact_slot` | `boolean` | `true` | Confirm Exact Slot |
+
+
+---
+
+## cancel_scheduled_post
+
+Cancel a scheduled post. Idempotent: returns success even if the
+post is no longer scheduled. Returns 409 if the post is already
+published (cannot un-publish).
+
+| Input | Type | Default | Description |
+|---|---|---|---|
+| `post_id` | `string` | — | Post Id |
+
+
+---
+
+## publish_post_now
+
+Publish a post to LinkedIn immediately (no schedule).
+
+On LinkedIn token expired, returns `actionable: true` with a
+reconnect hint. Returns 409 if the post is already published.
+
+| Input | Type | Default | Description |
+|---|---|---|---|
+| `post_id` | `string` | — | Post Id |
+
+
+---
+
 ## list_org_members
 
 List the active members of your organisation.
@@ -424,5 +424,4 @@ reconnect — only they can, not you. Surface that hint verbatim.
 | `timezone` | `any` | null | Timezone |
 | `confirm_same_day` | `boolean` | `true` | Confirm Same Day |
 | `confirm_exact_slot` | `boolean` | `true` | Confirm Exact Slot |
-
 
