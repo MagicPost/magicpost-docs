@@ -188,37 +188,6 @@ profile_url, valid_posts. Use the returned `urn` as
 
 ---
 
-## get_metrics_summary
-
-Get a compact summary of the user's LinkedIn analytics.
-
-Returns top-line totals (impressions, likes, comments, reposts) and the
-top N posts by impressions. Use `period` to scope the window. For most
-questions like "how did I perform recently?" use '30d'.
-
-| Input | Type | Default | Description |
-|---|---|---|---|
-| `period` | `string` | `'30d'` | Period |
-| `top_n` | `integer` | `5` | Top N |
-
-
----
-
-## refresh_my_posts
-
-Trigger a fresh pull of the user's LinkedIn posts and wait until done.
-
-Use this when the user explicitly asks to refresh their analytics. The
-tool polls the job status every 2 seconds until it completes or
-max_wait_seconds elapses. Default 90s is enough for typical refreshes.
-
-| Input | Type | Default | Description |
-|---|---|---|---|
-| `max_wait_seconds` | `integer` | `90` | Max Wait Seconds |
-
-
----
-
 ## list_my_posts
 
 List the user's posts filtered by lifecycle status.
@@ -324,6 +293,37 @@ reconnect hint. Returns 409 if the post is already published.
 | Input | Type | Default | Description |
 |---|---|---|---|
 | `post_id` | `string` | — | Post Id |
+
+
+---
+
+## get_metrics_summary
+
+Get a compact summary of the user's LinkedIn analytics.
+
+Returns top-line totals (impressions, likes, comments, reposts) and the
+top N posts by impressions. Use `period` to scope the window. For most
+questions like "how did I perform recently?" use '30d'.
+
+| Input | Type | Default | Description |
+|---|---|---|---|
+| `period` | `string` | `'30d'` | Period |
+| `top_n` | `integer` | `5` | Top N |
+
+
+---
+
+## refresh_my_posts
+
+Trigger a fresh pull of the user's LinkedIn posts and wait until done.
+
+Use this when the user explicitly asks to refresh their analytics. The
+tool polls the job status every 2 seconds until it completes or
+max_wait_seconds elapses. Default 90s is enough for typical refreshes.
+
+| Input | Type | Default | Description |
+|---|---|---|---|
+| `max_wait_seconds` | `integer` | `90` | Max Wait Seconds |
 
 
 ---
