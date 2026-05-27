@@ -212,7 +212,20 @@ default.
 
 ## get_post
 
-Fetch the full record for a single post owned by the user.
+Fetch the full record for a single MagicPost owned by the user.
+
+`post_id` MUST be the MagicPost UUID (e.g.
+"16a63f9a-0e13-43eb-b502-..."). It is NOT the LinkedIn share URN
+exposed as `linkedin_share_urn` by `get_metrics_summary`. Passing a
+URN returns `error_type='invalid_post_id_format'` (400).
+
+To resolve a `linkedin_share_urn` into a MagicPost UUID:
+  1. Call `list_my_posts(status="published")`.
+  2. Find the row whose `linked_in_url_post` contains the URN.
+  3. Use that row's `id` here.
+
+Posts published outside MagicPost are not in this table and cannot
+be fetched with this tool.
 
 | Input | Type | Default | Description |
 |---|---|---|---|
@@ -304,6 +317,21 @@ Get a compact summary of the user's LinkedIn analytics.
 Returns top-line totals (impressions, likes, comments, reposts) and the
 top N posts by impressions. Use `period` to scope the window. For most
 questions like "how did I perform recently?" use '30d'.
+
+Identifiers — IMPORTANT:
+`top_posts[].linkedin_share_urn` is the LinkedIn share URN, NOT the
+MagicPost UUID expected by `get_post`, `schedule_post`,
+`cancel_scheduled_post`, `publish_post_now`, or
+`create_or_update_post`. Passing it to those tools returns
+`error_type='invalid_post_id_format'`.
+
+To act on a top post, resolve the URN to a MagicPost UUID:
+  1. Call `list_my_posts(status="published")`.
+  2. Find the row whose `linked_in_url_post` contains the URN.
+  3. Use that row's `id` (UUID) with `get_post` / `schedule_post` / etc.
+
+Posts published outside MagicPost have no MagicPost UUID and cannot
+be acted on via the MCP tools.
 
 | Input | Type | Default | Description |
 |---|---|---|---|
@@ -440,6 +468,19 @@ Compact analytics for the org or one specific member.
 
 `top_n` defaults to 3 in team view (response stays token-efficient
 for an LLM); set higher when drilling into a single member.
+
+Identifiers — IMPORTANT:
+`top_posts[].linkedin_share_urn` is the LinkedIn share URN, NOT the
+MagicPost UUID expected by `get_post`, `schedule_post`,
+`cancel_scheduled_post`, `publish_post_now`, `schedule_member_post`,
+or `create_or_update_post`. Passing it to those tools returns
+`error_type='invalid_post_id_format'`.
+
+To act on a top post, resolve the URN to a MagicPost UUID via
+`list_org_member_posts(member_user_id=..., status="published")` and
+match the URN against the row's `linked_in_url_post` field. Posts
+published outside MagicPost have no MagicPost UUID and cannot be
+acted on.
 
 | Input | Type | Default | Description |
 |---|---|---|---|
