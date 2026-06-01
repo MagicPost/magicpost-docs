@@ -212,7 +212,20 @@ default.
 
 ## get_post
 
-Fetch the full record for a single post owned by the user.
+Fetch the full record for a single MagicPost owned by the user.
+
+`post_id` MUST be the MagicPost UUID (e.g.
+"16a63f9a-0e13-43eb-b502-..."). It is NOT the LinkedIn share URN
+exposed as `linkedin_share_urn` by `get_metrics_summary`. Passing a
+URN returns `error_type='invalid_post_id_format'` (400).
+
+To resolve a `linkedin_share_urn` into a MagicPost UUID:
+  1. Call `list_my_posts(status="published")`.
+  2. Find the row whose `linked_in_url_post` contains the URN.
+  3. Use that row's `id` here.
+
+Posts published outside MagicPost are not in this table and cannot
+be fetched with this tool.
 
 | Input | Type | Default | Description |
 |---|---|---|---|
@@ -305,6 +318,21 @@ Returns top-line totals (impressions, likes, comments, reposts) and the
 top N posts by impressions. Use `period` to scope the window. For most
 questions like "how did I perform recently?" use '30d'.
 
+Identifiers — IMPORTANT:
+`top_posts[].linkedin_share_urn` is the LinkedIn share URN, NOT the
+MagicPost UUID expected by `get_post`, `schedule_post`,
+`cancel_scheduled_post`, `publish_post_now`, or
+`create_or_update_post`. Passing it to those tools returns
+`error_type='invalid_post_id_format'`.
+
+To act on a top post, resolve the URN to a MagicPost UUID:
+  1. Call `list_my_posts(status="published")`.
+  2. Find the row whose `linked_in_url_post` contains the URN.
+  3. Use that row's `id` (UUID) with `get_post` / `schedule_post` / etc.
+
+Posts published outside MagicPost have no MagicPost UUID and cannot
+be acted on via the MCP tools.
+
 | Input | Type | Default | Description |
 |---|---|---|---|
 | `period` | `string` | `'30d'` | Period |
@@ -324,6 +352,88 @@ max_wait_seconds elapses. Default 90s is enough for typical refreshes.
 | Input | Type | Default | Description |
 |---|---|---|---|
 | `max_wait_seconds` | `integer` | `90` | Max Wait Seconds |
+
+
+---
+
+## search_inspiration_posts
+
+Search the global LinkedIn inspiration catalogue (NOT the user's
+own posts) for high-performing examples to draw inspiration from.
+
+Use this when the user asks things like:
+  - "Find me top posts about <topic>"
+  - "Show me viral French posts on remote work this month"
+  - "What's <creator> posting that gets traction?"
+
+Filters
+-------
+- query: free-text. Matches against post text + theme (PostgreSQL FTS).
+- creator_name: partial match on poster's display name.
+  ⚠️ ILIKE scan — slower than `poster_urn`. Prefer `poster_urn` when
+  you already have it (e.g. from a previous result).
+- poster_urn: exact LinkedIn URN — indexed, fast.
+- languages: e.g. ["French", "English"]. Use the pycountry English
+  name (not ISO codes, not native names).
+- formats: subset of {text, image, video, carousel, article}.
+- post_types: subset of {actionable, aspirational, introspective,
+  promotional}. Case-insensitive on input; backend matches Capitalize.
+- days_range: shortcut "posts from the last N days". Ignored when
+  `date_from`/`date_to` are set.
+- date_from / date_to: ISO date strings (YYYY-MM-DD). Inclusive.
+- min_likes / max_likes / min_words / max_words: numeric bounds.
+  Default minimums (20 likes, 80 words, 5 comments) are applied by
+  the backend to keep the catalogue noise-free even when filters
+  are sparse.
+
+Sorting
+-------
+- 'recent'       → posted_at DESC
+- 'top_likes'    → num_likes DESC (default — best for inspiration)
+- 'top_comments' → num_comments DESC (proxy for discussion-driving)
+
+Pagination
+----------
+- page: 1-indexed. Start at 1, increment to walk through results.
+- limit: up to 12 per call. Default 10. The response includes
+  `has_more` so you know when to stop.
+
+Returns
+-------
+`{success, page, per_page, total, has_more, count, posts, filters_applied}`
+
+Each post has: id, text (full), theme, type, format, language,
+posted_at (ISO), num_likes, num_comments, num_reposts, words,
+poster_name, poster_urn, poster_headline, profile_followers_count,
+post_url, image_url, video_url, document_cover_urls.
+
+Common workflows
+----------------
+- "Get me 5 great hooks on <topic>": query=<topic>, limit=5,
+  sort_by='top_likes'.
+- "Latest carousels by <creator>": creator_name=<name>,
+  formats=['carousel'], sort_by='recent'.
+- "Inspiration close to what I'm writing": pass the user's draft
+  theme as `query`, leave other filters open.
+
+| Input | Type | Default | Description |
+|---|---|---|---|
+| `query` | `any` | null | Query |
+| `creator_name` | `any` | null | Creator Name |
+| `poster_urn` | `any` | null | Poster Urn |
+| `languages` | `any` | null | Languages |
+| `formats` | `any` | null | Formats |
+| `post_types` | `any` | null | Post Types |
+| `days_range` | `any` | null | Days Range |
+| `date_from` | `any` | null | Date From |
+| `date_to` | `any` | null | Date To |
+| `min_likes` | `any` | null | Min Likes |
+| `max_likes` | `any` | null | Max Likes |
+| `min_words` | `any` | null | Min Words |
+| `max_words` | `any` | null | Max Words |
+| `sort_by` | `string` | `'top_likes'` | Sort By |
+| `page` | `integer` | `1` | Page |
+| `limit` | `integer` | `10` | Limit |
 
 
 ---
@@ -358,6 +468,19 @@ Compact analytics for the org or one specific member.
 
 `top_n` defaults to 3 in team view (response stays token-efficient
 for an LLM); set higher when drilling into a single member.
+
+Identifiers — IMPORTANT:
+`top_posts[].linkedin_share_urn` is the LinkedIn share URN, NOT the
+MagicPost UUID expected by `get_post`, `schedule_post`,
+`cancel_scheduled_post`, `publish_post_now`, `schedule_member_post`,
+or `create_or_update_post`. Passing it to those tools returns
+`error_type='invalid_post_id_format'`.
+
+To act on a top post, resolve the URN to a MagicPost UUID via
+`list_org_member_posts(member_user_id=..., status="published")` and
+match the URN against the row's `linked_in_url_post` field. Posts
+published outside MagicPost have no MagicPost UUID and cannot be
+acted on.
 
 | Input | Type | Default | Description |
 |---|---|---|---|
