@@ -362,9 +362,9 @@ Search the global LinkedIn inspiration catalogue (NOT the user's
 own posts) for high-performing examples to draw inspiration from.
 
 Use this when the user asks things like:
-  - "Find me top posts about <topic>"
+  - "Find me top posts about `<topic>`"
   - "Show me viral French posts on remote work this month"
-  - "What's <creator> posting that gets traction?"
+  - "What's `<creator>` posting that gets traction?"
 
 Filters
 -------
@@ -409,9 +409,9 @@ post_url, image_url, video_url, document_cover_urls.
 
 Common workflows
 ----------------
-- "Get me 5 great hooks on <topic>": query=<topic>, limit=5,
+- "Get me 5 great hooks on `<topic>`": query=`<topic>`, limit=5,
   sort_by='top_likes'.
-- "Latest carousels by <creator>": creator_name=<name>,
+- "Latest carousels by `<creator>`": creator_name=`<name>`,
   formats=['carousel'], sort_by='recent'.
 - "Inspiration close to what I'm writing": pass the user's draft
   theme as `query`, leave other filters open.
