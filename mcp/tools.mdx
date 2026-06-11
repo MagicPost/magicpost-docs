@@ -362,9 +362,9 @@ Search the global LinkedIn inspiration catalogue (NOT the user's
 own posts) for high-performing examples to draw inspiration from.
 
 Use this when the user asks things like:
-  - "Find me top posts about `<topic>`"
+  - "Find me top posts about \<topic>"
   - "Show me viral French posts on remote work this month"
-  - "What's `<creator>` posting that gets traction?"
+  - "What's \<creator> posting that gets traction?"
 
 Filters
 -------
@@ -375,9 +375,9 @@ Filters
 - poster_urn: exact LinkedIn URN — indexed, fast.
 - languages: e.g. ["French", "English"]. Use the pycountry English
   name (not ISO codes, not native names).
-- formats: subset of `{text, image, video, carousel, article}`.
-- post_types: subset of `{actionable, aspirational, introspective, promotional}`.
-  Case-insensitive on input; backend matches Capitalize.
+- formats: subset of \{text, image, video, carousel, article\}.
+- post_types: subset of \{actionable, aspirational, introspective,
+  promotional\}. Case-insensitive on input; backend matches Capitalize.
 - days_range: shortcut "posts from the last N days". Ignored when
   `date_from`/`date_to` are set.
 - date_from / date_to: ISO date strings (YYYY-MM-DD). Inclusive.
@@ -409,9 +409,9 @@ post_url, image_url, video_url, document_cover_urls.
 
 Common workflows
 ----------------
-- "Get me 5 great hooks on `<topic>`": query=`<topic>`, limit=5,
+- "Get me 5 great hooks on \<topic>": query=\<topic>, limit=5,
   sort_by='top_likes'.
-- "Latest carousels by `<creator>`": creator_name=`<name>`,
+- "Latest carousels by \<creator>": creator_name=\<name>,
   formats=['carousel'], sort_by='recent'.
 - "Inspiration close to what I'm writing": pass the user's draft
   theme as `query`, leave other filters open.
@@ -434,6 +434,180 @@ Common workflows
 | `sort_by` | `string` | `'top_likes'` | Sort By |
 | `page` | `integer` | `1` | Page |
 | `limit` | `integer` | `10` | Limit |
+
+
+---
+
+## list_leads
+
+List the user's LinkedIn leads (prospects detected from the
+engagement on their posts and qualified against their ICPs).
+
+Filters
+-------
+- icp_id: scope the list to one ICP. When set, each lead embeds its
+  qualification against that ICP (level A/B/C/D + icebreaker).
+  Get valid ids from `list_icps`.
+- level: qualification level filter (A is the best fit, D the worst).
+  Only effective when `icp_id` is also provided.
+- contact_status: pipeline status slug. Defaults are 'not_contacted',
+  'contacted', 'in_discussion', 'to_follow_up', 'won', 'lost',
+  'not_relevant' (users can customize them).
+  ⚠️ A lead that was never touched has contact_status null, and this
+  filter only matches explicitly-set statuses — so filtering on
+  'not_contacted' does NOT return untouched leads. To find leads the
+  user hasn't contacted yet, list WITHOUT this filter and read each
+  item's contact_status (null or 'not_contacted' = not contacted).
+- search: free-text match on the lead's name/headline.
+- favorite: True to show only favorited leads.
+
+Pagination
+----------
+- limit: up to 25 per call (default 20).
+- offset: 0-indexed. Use `offset` + `has_more` from the response to
+  paginate.
+
+Returns `{items, count, limit, offset, has_more}`.
+
+| Input | Type | Default | Description |
+|---|---|---|---|
+| `icp_id` | `any` | null | Icp Id |
+| `level` | `any` | null | Level |
+| `contact_status` | `any` | null | Contact Status |
+| `search` | `any` | null | Search |
+| `favorite` | `any` | null | Favorite |
+| `limit` | `integer` | `20` | Limit |
+| `offset` | `integer` | `0` | Offset |
+
+
+---
+
+## get_lead
+
+Full detail of one lead: profile, interactions (likes/comments on
+the user's posts), qualification reasoning, icebreaker, and CRM sync
+state (`deliveries` to connected external CRMs).
+
+Get `prospect_id` values from `list_leads`.
+
+| Input | Type | Default | Description |
+|---|---|---|---|
+| `prospect_id` | `string` | — | Prospect Id |
+
+
+---
+
+## list_icps
+
+List the user's ICPs (Ideal Customer Profiles).
+
+Needed to get the `icp_id` values used by `list_leads` (scoping) and
+`detect_leads` (targeting). Each ICP describes the kind of prospect
+the user wants to detect; leads are scored A/B/C/D against it.
+
+_No inputs._
+
+
+---
+
+## get_leads_summary
+
+Leads quota status: trial state (is_trial, trial_days_remaining,
+trial_ends_at), monthly quota (leads_monthly_included,
+leads_consumed_in_period, leads_remaining), top-ups
+(topup_leads_remaining, topups_detail), and renewal date (period_end).
+
+Call this before `detect_leads` if the user asks how many credits
+they have left.
+
+_No inputs._
+
+
+---
+
+## get_detection_status
+
+Poll the status of running lead detections (they are async and
+typically take 2-15 minutes).
+
+Returns `{in_progress, scoring_in_progress, all_terminal}`.
+`all_terminal: true` means every detection is done — the new leads
+are available via `list_leads`.
+
+_No inputs._
+
+
+---
+
+## detect_leads
+
+Detect new leads from the engagement (likes + comments) on one of
+the user's LinkedIn posts.
+
+⚠️ CONSUMES LEAD CREDITS — 1 credit per scored prospect. The exact
+cost is NOT known upfront: every engager matching an ICP gets scored
+(potentially dozens on a popular post), so never promise a number.
+
+⚠️ OTHER SIDE EFFECTS — a completed detection also:
+- pushes the qualified leads to the user's connected external CRMs
+  (Pipedrive/HubSpot/Lemlist/Zapier) — an external write that is
+  hard to undo;
+- sends a recap email if the user enabled it.
+The confirm-step response tells you which apply (`crm_destinations`,
+`email_recap_enabled`) — relay them to the user before confirming.
+
+Two-step confirmation flow:
+1. First call with confirm=true (default): returns `success: false,
+   warning: 'credits_consumption'` with the targeted ICPs, the
+   remaining credits, `crm_destinations` (enabled CRM push rules;
+   empty list = no CRM push) and `email_recap_enabled`. Show all of
+   this to the user and ask them to confirm.
+2. After the user confirms, retry with confirm=false to actually
+   start the detection (returns `success: true` with a queued
+   payload).
+
+- icp_ids: optional list of ICP ids to score against (from
+  `list_icps`). Defaults to all the user's active ICPs.
+- Detection runs in the background — poll `get_detection_status`
+  afterwards. Returns `error_type: 'leads_quota_exhausted'` (402)
+  when no credits remain.
+- Re-detecting an already-processed post is a NO-OP until its
+  engagement has grown: the response comes back with `success:
+  false` and `queued: 0` (`already_synced` in results[]). Tell the
+  user nothing was launched in that case — do not claim a detection
+  started.
+- `results[]` can MIX queued and rejected ICPs (e.g. `queued: 2`
+  with one `already_synced` entry). Report both to the user: which
+  ICPs were launched and which were skipped, and why.
+
+| Input | Type | Default | Description |
+|---|---|---|---|
+| `post_urn` | `string` | — | Post Urn |
+| `icp_ids` | `any` | null | Icp Ids |
+| `confirm` | `boolean` | `true` | Confirm |
+
+
+---
+
+## update_lead
+
+Update a lead's pipeline fields. At least one field is required.
+
+- contact_status: pipeline status slug (see `list_leads` for the
+  default values; users can customize them).
+- tags: full replacement of the lead's tag list.
+- comment: free-text note on the lead.
+- is_favorite: star/unstar the lead.
+
+Only the provided fields are modified. Returns the updated lead.
+
+| Input | Type | Default | Description |
+|---|---|---|---|
+| `prospect_id` | `string` | — | Prospect Id |
+| `contact_status` | `any` | null | Contact Status |
+| `tags` | `any` | null | Tags |
+| `comment` | `any` | null | Comment |
+| `is_favorite` | `any` | null | Is Favorite |
 
 
 ---
