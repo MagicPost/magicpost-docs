@@ -214,6 +214,13 @@ default.
 
 Fetch the full record for a single MagicPost owned by the user.
 
+OWN POSTS ONLY. This tool returns `error_type='post_not_found'` (404)
+for any post you don't own — including posts of your org teammates,
+even if you are an org admin. To read a TEAMMATE's post, use
+`get_org_member_post(member_user_id=..., post_id=...)` instead. So if
+the post id came from `list_org_member_posts` or relates to another
+member, do NOT call this tool.
+
 `post_id` MUST be the MagicPost UUID (e.g.
 "16a63f9a-0e13-43eb-b502-..."). It is NOT the LinkedIn share URN
 exposed as `linkedin_share_urn` by `get_metrics_summary`. Passing a
@@ -645,16 +652,16 @@ for an LLM); set higher when drilling into a single member.
 
 Identifiers — IMPORTANT:
 `top_posts[].linkedin_share_urn` is the LinkedIn share URN, NOT the
-MagicPost UUID expected by `get_post`, `schedule_post`,
-`cancel_scheduled_post`, `publish_post_now`, `schedule_member_post`,
-or `create_or_update_post`. Passing it to those tools returns
-`error_type='invalid_post_id_format'`.
+MagicPost UUID expected by `get_post`, `get_org_member_post`,
+`schedule_post`, `cancel_scheduled_post`, `publish_post_now`,
+`schedule_member_post`, or `create_or_update_post`. Passing it to
+those tools returns `error_type='invalid_post_id_format'`.
 
 To act on a top post, resolve the URN to a MagicPost UUID via
 `list_org_member_posts(member_user_id=..., status="published")` and
-match the URN against the row's `linked_in_url_post` field. Posts
-published outside MagicPost have no MagicPost UUID and cannot be
-acted on.
+match the URN against the row's `linked_in_url_post` field. Then read
+its full record with `get_org_member_post`. Posts published outside
+MagicPost have no MagicPost UUID and cannot be acted on.
 
 | Input | Type | Default | Description |
 |---|---|---|---|
@@ -680,12 +687,61 @@ same semantics as `list_my_posts`. Members and members' posts are
 returned even if the LLM client doesn't have a direct relationship
 with them — org-admin permission is sufficient.
 
+Each returned post row exposes its MagicPost UUID as `id`. To read
+ONE post's full record (full text, media, stats…), pass that `id` to
+`get_org_member_post(member_user_id=..., post_id=...)` — NOT to
+`get_post`, which only reads YOUR own posts and returns
+`post_not_found` for a teammate's post.
+
 | Input | Type | Default | Description |
 |---|---|---|---|
 | `member_user_id` | `any` | null | Member User Id |
 | `status` | `string` | `'scheduled'` | Status |
 | `limit` | `integer` | `20` | Limit |
 | `offset` | `integer` | `0` | Offset |
+
+
+---
+
+## get_org_member_post
+
+Fetch the full record of ONE post owned by a member of your org.
+
+Org-admin read counterpart to `get_post` (which only reads YOUR own
+posts). Use this when you already have a member's post UUID — typically
+from `list_org_member_posts` — and need its full content/metadata
+(full text, schedule date, LinkedIn URL, stats, media, etc.).
+
+Only callable by org super_admins. Both arguments are REQUIRED:
+  - `member_user_id`: the post owner's user id, exactly as returned by
+    `list_org_members` (`user_record_id`) or `list_org_member_posts`.
+    It must be a member of YOUR org.
+  - `post_id`: the MagicPost UUID of the post (e.g.
+    "df1cbd56-a7c0-41f4-b929-5d242bed12eb"), as returned in the `id`
+    field by `list_org_member_posts`. This is NOT the
+    `linkedin_share_urn` from `get_org_metrics_summary` — passing a URN
+    returns `error_type='invalid_post_id_format'` (400).
+
+Typical chain:
+  1. `list_org_member_posts(member_user_id=..., status=...)` → read the
+     target row's `id`.
+  2. `get_org_member_post(member_user_id=..., post_id=<that id>)`.
+
+Error shapes:
+  - `error_type='org_admin_required'` (403): you are not an org admin.
+  - `error_type='member_not_in_org'` (404): `member_user_id` is not in
+    your org.
+  - `error_type='post_not_found'` (404): the post does not exist, is
+    deleted, or does NOT belong to `member_user_id` (IDOR guard — you
+    cannot read another member's post by passing the wrong owner).
+
+Do NOT use `get_post` for a teammate's post — it is scoped to your own
+posts and will return `post_not_found` for anything you don't own.
+
+| Input | Type | Default | Description |
+|---|---|---|---|
+| `member_user_id` | `string` | — | Member User Id |
+| `post_id` | `string` | — | Post Id |
 
 
 ---
