@@ -31,7 +31,33 @@ from typing import Any
 import httpx
 
 MCP_URL = os.environ.get("MAGICPOST_MCP_URL", "https://mcp.magicpost.in/mcp")
-OUTPUT = Path(__file__).resolve().parent.parent / "mcp" / "tools.mdx"
+ROOT = Path(__file__).resolve().parent.parent
+OUTPUT = ROOT / "mcp" / "tools.mdx"
+OVERVIEW = ROOT / "mcp" / "overview.mdx"
+INTRO = ROOT / "introduction.mdx"
+
+# ponytail: name→category map is the ONLY thing to touch when a tool is added.
+# tools/list carries no category, so we group by name here (mirrors the backend
+# mcp_server/tools/*.py files). An unmapped tool lands in "Other" + a warning —
+# never silently dropped. The order of keys is the display order.
+CATEGORIES: dict[str, list[str]] = {
+    "Generation & styles": [
+        "generate_post", "list_my_writing_styles",
+        "find_writing_style_profile", "add_writing_style_profile",
+    ],
+    "Posts": ["list_my_posts", "get_post", "create_or_update_post"],
+    "Scheduling": ["schedule_post", "cancel_scheduled_post", "publish_post_now"],
+    "Analytics": ["get_metrics_summary", "refresh_my_posts"],
+    "Inspiration": ["search_inspiration_posts"],
+    "Leads & CRM": [
+        "list_leads", "get_lead", "list_icps", "get_leads_summary",
+        "get_detection_status", "detect_leads", "update_lead",
+    ],
+    "Org / team": [
+        "list_org_members", "get_org_metrics_summary", "list_org_member_posts",
+        "get_org_member_post", "schedule_member_post",
+    ],
+}
 
 
 def fetch_tools(pat: str) -> list[dict[str, Any]]:
@@ -127,6 +153,75 @@ def _format_default(value: Any) -> str:
     return f"`{value!r}`"
 
 
+def purpose(tool: dict[str, Any]) -> str:
+    """One-line purpose for the overview table: the first sentence of the
+    docstring's opening paragraph (docstrings are hard-wrapped, so we join the
+    paragraph before cutting at the first sentence)."""
+    desc = (tool.get("description") or "").strip()
+    para: list[str] = []
+    for line in desc.splitlines():
+        if not line.strip():
+            break
+        para.append(line.strip())
+    text = " ".join(para)
+    if ". " in text:
+        text = text.split(". ", 1)[0] + "."
+    return escape_mdx(text).replace("|", "\\|")
+
+
+def build_overview_table(tools: list[dict[str, Any]]) -> str:
+    by_name = {t["name"]: t for t in tools}
+    seen: set[str] = set()
+    blocks: list[str] = []
+    for label, names in CATEGORIES.items():
+        rows = []
+        for name in names:
+            tool = by_name.get(name)
+            if not tool:  # removed backend-side → legitimately drops from docs
+                continue
+            seen.add(name)
+            rows.append(f"| `{name}` | {purpose(tool)} |")
+        if rows:
+            blocks.append(f"#### {label}\n\n| Tool | Purpose |\n|---|---|\n" + "\n".join(rows))
+    leftover = [t for t in tools if t["name"] not in seen]
+    if leftover:
+        names = ", ".join(t["name"] for t in leftover)
+        print(f"⚠️  {len(leftover)} unmapped tool(s) → 'Other'; add to CATEGORIES: {names}",
+              file=sys.stderr)
+        rows = [f"| `{t['name']}` | {purpose(t)} |" for t in leftover]
+        blocks.append("#### Other\n\n| Tool | Purpose |\n|---|---|\n" + "\n".join(rows))
+    return "\n\n".join(blocks)
+
+
+def patch_markers(path: Path, tag: str, inner: str) -> None:
+    """Replace every `{/* tag */}…{/* /tag */}` region in an MDX file with
+    `inner`, markers kept intact so the next run matches again."""
+    txt = path.read_text(encoding="utf-8")
+    open_t, close_t = f"{{/* {tag} */}}", f"{{/* /{tag} */}}"
+    pat = re.compile(re.escape(open_t) + r".*?" + re.escape(close_t), re.S)
+    if not pat.search(txt):
+        raise SystemExit(f"marker '{tag}' not found in {path.name}")
+    # lambda replacement → backslashes in `inner` are kept literal (no \1 etc.)
+    path.write_text(pat.sub(lambda _m: open_t + inner + close_t, txt), encoding="utf-8")
+
+
+# Pages with a `{/* tools:count */}` marker that must track the tool count.
+COUNT_PAGES = [
+    INTRO,
+    OVERVIEW,
+    ROOT / "mcp" / "setup-cursor.mdx",
+    ROOT / "mcp" / "setup-claude-desktop.mdx",
+]
+
+
+def sync_overview(tools: list[dict[str, Any]]) -> None:
+    count = str(len(tools))
+    for page in COUNT_PAGES:
+        patch_markers(page, "tools:count", count)
+    patch_markers(OVERVIEW, "tools:table", "\n\n" + build_overview_table(tools) + "\n\n")
+    print(f"✅ Patched {len(COUNT_PAGES)} page(s) + overview table (count={count})")
+
+
 HEADER = """---
 title: "Tools catalog"
 description: "The MCP tools — inputs, outputs, examples."
@@ -155,6 +250,8 @@ def main() -> int:
     sections = "\n\n---\n\n".join(render_tool_section(t) for t in tools)
     OUTPUT.write_text(HEADER + sections + "\n", encoding="utf-8")
     print(f"✅ Wrote {len(tools)} tool(s) to {OUTPUT.relative_to(OUTPUT.parent.parent)}")
+
+    sync_overview(tools)
     return 0
 
 
