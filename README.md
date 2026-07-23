@@ -24,6 +24,7 @@ mcp/
   overview.mdx
   setup-claude-desktop.mdx
   setup-cursor.mdx
+  media-attachments.mdx
   tools.mdx                # auto-generated, see scripts/sync-tools.py
 api-reference/
   overview.mdx

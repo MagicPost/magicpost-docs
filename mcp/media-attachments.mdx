@@ -1,0 +1,97 @@
+---
+title: "Attach media"
+description: "Attach a chat-provided image, video, GIF, or PDF to a MagicPost draft."
+icon: "paperclip"
+---
+
+The `attach_media_to_post` tool copies one file supplied by your MCP client
+into MagicPost and links it to an existing draft. You can then schedule or
+publish the post with its media from the same conversation.
+
+## Workflow
+
+<Steps>
+  <Step title="Create or update the draft">
+    Call `create_or_update_post` and keep the returned `post_id`.
+  </Step>
+  <Step title="Attach the file">
+    Add the file to the conversation, then call `attach_media_to_post` with the
+    draft's `post_id`. You can also provide optional alt text for an image.
+  </Step>
+  <Step title="Schedule or publish">
+    After the attachment succeeds, call `schedule_post` or
+    `publish_post_now` with the same `post_id`.
+  </Step>
+</Steps>
+
+For example:
+
+> Create a LinkedIn draft from this text, attach the image in this
+> conversation with the alt text "Product analytics dashboard", then schedule
+> it for tomorrow at 14:00.
+
+<Note>
+  Your MCP client must expose the uploaded file to the tool as a temporary file
+  reference. If `attach_media_to_post` is not offered the file, create the
+  draft in chat and add the media from the MagicPost web app.
+</Note>
+
+## Supported files
+
+| Media | Formats | Maximum size |
+|---|---|---:|
+| Images | JPEG, PNG, WebP, BMP, HEIC, HEIF, AVIF | 50 MB |
+| Animated images | GIF | 10 MB |
+| Videos | MP4, MOV, AVI, WebM, WMV | 200 MB |
+| Documents | PDF | 100 MB |
+
+Only one file can be attached to a post through this tool.
+
+## Draft requirements
+
+The target post must:
+
+- belong to your MagicPost account;
+- be unpublished and not currently publishing;
+- be unscheduled;
+- have no poll;
+- have no existing media.
+
+If the draft is already scheduled, ask the client to cancel the schedule,
+attach the media, then schedule it again. The tool does not replace or remove
+existing media.
+
+## Client compatibility
+
+MagicPost declares `media_file` as a file input for MCP hosts that support
+chat-provided files. File attachment behavior still depends on the host and
+its MCP integration.
+
+For ChatGPT or Claude, attach the file to the same conversation and explicitly
+ask the assistant to use it with `attach_media_to_post`. If the host does not
+pass a file reference to the tool, use the MagicPost web app for that file.
+
+## Privacy and transfer
+
+The temporary file URL supplied by the chat host is used only during the tool
+call. MagicPost validates the file type, size, and signature before linking the
+copy stored in MagicPost to your draft. The temporary host URL is not stored in
+the post or included in tool audit data.
+
+The MCP cannot browse your MagicPost media library or retrieve media from past
+posts.
+
+## Common errors
+
+| Error | What to do |
+|---|---|
+| File not available to the tool | Attach the file again in the current conversation and retry. |
+| Unsupported type or file too large | Convert or compress the file to a supported format and size. |
+| Post is scheduled | Cancel the schedule, attach the file, then schedule it again. |
+| Post already has media | Use a different draft or edit the media in the MagicPost web app. |
+| Post contains a poll | Remove the poll in the MagicPost web app or use a separate draft. |
+
+## Tool details
+
+See [`attach_media_to_post` in the tools catalog](/mcp/tools#attach-media-to-post)
+for its generated input schema and description.

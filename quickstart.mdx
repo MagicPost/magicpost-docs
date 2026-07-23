@@ -5,8 +5,8 @@ icon: "play"
 ---
 
 By the end of this page, Claude Desktop can list your scheduled posts, draft
-new ones, schedule them, and read your analytics — all from a normal
-conversation.
+new ones, attach supported files when the client provides them to the MCP,
+schedule them, and read your analytics — all from a normal conversation.
 
 ## 1. Create an API key
 
@@ -71,8 +71,17 @@ In any conversation, ask things like:
 - *"List my scheduled posts on MagicPost"*
 - *"Summarize my LinkedIn analytics for the last 30 days"*
 - *"Create a draft: 'My first post via Claude'"*
+- *"Create a draft from this text, attach this image, then schedule it for
+  tomorrow at 14:00"* (attach the file to the conversation before sending)
 - *"Schedule post xyz for tomorrow 14:00"* (Claude will warn you if you already
   have other posts that day before going through)
+
+<Note>
+  Media attachment depends on the MCP client exposing the uploaded file as a
+  temporary file reference. If the client does not offer the file to the
+  `attach_media_to_post` tool, create the draft in chat and add the media from
+  the MagicPost web app.
+</Note>
 
 If Claude says it doesn't have access to your data, the MCP server probably
 didn't load — check the config file syntax and that `mcp-remote` is reachable
@@ -83,6 +92,9 @@ didn't load — check the config file syntax and that `mcp-remote` is reachable
 <CardGroup cols={2}>
   <Card title="MCP tools" icon="wrench" href="/mcp/tools">
     Full catalog of what the LLM can do.
+  </Card>
+  <Card title="Attach media" icon="paperclip" href="/mcp/media-attachments">
+    Supported formats, limits, and the complete workflow.
   </Card>
   <Card title="Setup Cursor" icon="terminal" href="/mcp/setup-cursor">
     Same backend, different MCP client.

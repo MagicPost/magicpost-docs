@@ -27,6 +27,7 @@
               "mcp/overview",
               "mcp/setup-claude-desktop",
               "mcp/setup-cursor",
+              "mcp/media-attachments",
               "mcp/tools"
             ]
           }

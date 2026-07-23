@@ -245,8 +245,9 @@ be fetched with this tool.
 
 Create a new draft post (no post_id) or update an existing one's text.
 
-Text content only — media (images/videos) must be added from the
-MagicPost web UI for v1. On success returns
+This tool only creates or updates text. To add an image, video, or PDF,
+call attach_media_to_post with the returned post_id before scheduling
+or publishing. On success returns
 `{success: True, post_id, created: bool}` — use `post_id` (NOT `id`)
 when chaining into schedule_post or publish_post_now.
 
@@ -254,6 +255,27 @@ when chaining into schedule_post or publish_post_now.
 |---|---|---|---|
 | `content` | `string` | — | Content |
 | `post_id` | `any` | null | Post Id |
+
+
+---
+
+## attach_media_to_post
+
+Attach one chat-provided image, video, or PDF to an owned draft.
+
+Call this after create_or_update_post and before schedule_post or
+publish_post_now. The post must be an unscheduled, unpublished draft,
+must not contain a poll, and must not already have media.
+
+`media_file` is a temporary file reference supplied by the chat host.
+Never invent or reuse its `download_url`: it is consumed during this
+tool call and copied into permanent MagicPost storage.
+
+| Input | Type | Default | Description |
+|---|---|---|---|
+| `post_id` | `string` | — | Post Id |
+| `media_file` | `FileReference` | — |  |
+| `alt_text` | `any` | null | Alt Text |
 
 
 ---
@@ -352,9 +374,18 @@ be acted on via the MCP tools.
 
 Trigger a fresh pull of the user's LinkedIn posts and wait until done.
 
-Use this when the user explicitly asks to refresh their analytics. The
-tool polls the job status every 2 seconds until it completes or
-max_wait_seconds elapses. Default 90s is enough for typical refreshes.
+Use this ONLY when the user explicitly asks to refresh their analytics.
+It is a slow, expensive call: the backend scrapes LinkedIn
+synchronously and only responds once the refresh is finished, which can
+take up to a minute or two. Call it once and wait for the result — do
+NOT call it again back-to-back if it errors, as each call re-triggers
+the full scrape.
+
+`max_wait_seconds` is only an upper bound on how long this tool waits;
+with the current backend the call returns as soon as the refresh is
+done, so the default is fine. If the result ever comes back with status
+'timeout', the refresh is still running in the background — tell the
+user to check back shortly instead of calling again.
 
 | Input | Type | Default | Description |
 |---|---|---|---|

@@ -45,7 +45,10 @@ CATEGORIES: dict[str, list[str]] = {
         "generate_post", "list_my_writing_styles",
         "find_writing_style_profile", "add_writing_style_profile",
     ],
-    "Posts": ["list_my_posts", "get_post", "create_or_update_post"],
+    "Posts": [
+        "list_my_posts", "get_post", "create_or_update_post",
+        "attach_media_to_post",
+    ],
     "Scheduling": ["schedule_post", "cancel_scheduled_post", "publish_post_now"],
     "Analytics": ["get_metrics_summary", "refresh_my_posts"],
     "Inspiration": ["search_inspiration_posts"],
@@ -117,7 +120,12 @@ def render_tool_section(tool: dict[str, Any]) -> str:
 
     rows = []
     for prop_name, prop_schema in props.items():
-        ptype = prop_schema.get("type") or _enum_summary(prop_schema) or "any"
+        ptype = (
+            prop_schema.get("type")
+            or _enum_summary(prop_schema)
+            or _reference_name(prop_schema)
+            or "any"
+        )
         default = prop_schema.get("default")
         default_str = "—" if prop_name in required else _format_default(default)
         desc = prop_schema.get("description") or prop_schema.get("title") or ""
@@ -143,6 +151,13 @@ def _enum_summary(prop: dict[str, Any]) -> str | None:
     if "enum" in prop:
         return " \\| ".join(f"'{v}'" for v in prop["enum"])
     return None
+
+
+def _reference_name(prop: dict[str, Any]) -> str | None:
+    reference = prop.get("$ref")
+    if not isinstance(reference, str):
+        return None
+    return reference.rsplit("/", 1)[-1]
 
 
 def _format_default(value: Any) -> str:

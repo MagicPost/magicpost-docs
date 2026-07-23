@@ -72,8 +72,9 @@ Create a draft post.
   and rendered on LinkedIn.
 
 <Warning>
-Text only in v1. Add images, videos, polls and `@mentions` from the MagicPost
-web UI.
+This REST endpoint creates text-only drafts. MCP clients that support chat file
+references can then call `attach_media_to_post`; otherwise add images, videos,
+polls and `@mentions` from the MagicPost web UI.
 </Warning>
 
 **Response** (HTTP 201)
