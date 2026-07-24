@@ -51,7 +51,9 @@ CATEGORIES: dict[str, list[str]] = {
         "complete_post_media_upload",
     ],
     "Scheduling": ["schedule_post", "cancel_scheduled_post", "publish_post_now"],
-    "Analytics": ["get_metrics_summary", "refresh_my_posts"],
+    "Analytics": [
+        "list_linkedin_post_metrics", "get_metrics_summary", "refresh_my_posts",
+    ],
     "Inspiration": ["search_inspiration_posts"],
     "Leads & CRM": [
         "list_leads", "get_lead", "list_icps", "get_leads_summary",
@@ -121,12 +123,7 @@ def render_tool_section(tool: dict[str, Any]) -> str:
 
     rows = []
     for prop_name, prop_schema in props.items():
-        ptype = (
-            prop_schema.get("type")
-            or _enum_summary(prop_schema)
-            or _reference_name(prop_schema)
-            or "any"
-        )
+        ptype = _schema_type(prop_schema)
         default = prop_schema.get("default")
         default_str = "—" if prop_name in required else _format_default(default)
         desc = prop_schema.get("description") or prop_schema.get("title") or ""
@@ -146,6 +143,24 @@ def render_tool_section(tool: dict[str, Any]) -> str:
 
 {table}
 """
+
+
+def _schema_type(prop: dict[str, Any]) -> str:
+    direct = prop.get("type")
+    if direct:
+        return direct
+    enum = _enum_summary(prop)
+    if enum:
+        return enum
+    reference = _reference_name(prop)
+    if reference:
+        return reference
+    variants = prop.get("anyOf")
+    if isinstance(variants, list):
+        rendered = [_schema_type(item) for item in variants if isinstance(item, dict)]
+        if rendered:
+            return " \\| ".join(dict.fromkeys(rendered))
+    return "any"
 
 
 def _enum_summary(prop: dict[str, Any]) -> str | None:

@@ -67,13 +67,13 @@ Errors that need user action
 | Input | Type | Default | Description |
 |---|---|---|---|
 | `subject` | `string` | — | Subject |
-| `type` | `any` | null | Type |
-| `language` | `any` | null | Language |
-| `tone` | `any` | null | Tone |
-| `hook` | `any` | null | Hook |
-| `guideline` | `any` | null | Guideline |
-| `signature` | `any` | null | Signature |
-| `writing_style_urn` | `any` | null | Writing Style Urn |
+| `type` | `string \| null` | null | Type |
+| `language` | `string \| null` | null | Language |
+| `tone` | `string \| null` | null | Tone |
+| `hook` | `string \| null` | null | Hook |
+| `guideline` | `string \| null` | null | Guideline |
+| `signature` | `string \| null` | null | Signature |
+| `writing_style_urn` | `string \| null` | null | Writing Style Urn |
 
 
 ---
@@ -255,7 +255,7 @@ when chaining into schedule_post or publish_post_now.
 | Input | Type | Default | Description |
 |---|---|---|---|
 | `content` | `string` | — | Content |
-| `post_id` | `any` | null | Post Id |
+| `post_id` | `string \| null` | null | Post Id |
 
 
 ---
@@ -276,7 +276,7 @@ tool call and copied into permanent MagicPost storage.
 |---|---|---|---|
 | `post_id` | `string` | — | Post Id |
 | `media_file` | `FileReference` | — |  |
-| `alt_text` | `any` | null | Alt Text |
+| `alt_text` | `string \| null` | null | Alt Text |
 
 
 ---
@@ -308,7 +308,7 @@ the signed upload URL after the upload completes.
 |---|---|---|---|
 | `post_id` | `string` | — | Post Id |
 | `file_name` | `string` | — | File Name |
-| `mime_type` | `any` | null | Mime Type |
+| `mime_type` | `string \| null` | null | Mime Type |
 
 
 ---
@@ -329,7 +329,7 @@ successfully completed upload is safe and returns success.
 |---|---|---|---|
 | `post_id` | `string` | — | Post Id |
 | `upload_id` | `string` | — | Upload Id |
-| `alt_text` | `any` | null | Alt Text |
+| `alt_text` | `string \| null` | null | Alt Text |
 
 
 ---
@@ -359,7 +359,7 @@ hint — surface it to the user verbatim, do not retry blindly.
 |---|---|---|---|
 | `post_id` | `string` | — | Post Id |
 | `at_iso` | `string` | — | At Iso |
-| `timezone` | `any` | null | Timezone |
+| `timezone` | `string \| null` | null | Timezone |
 | `confirm_same_day` | `boolean` | `true` | Confirm Same Day |
 | `confirm_exact_slot` | `boolean` | `true` | Confirm Exact Slot |
 
@@ -389,6 +389,32 @@ reconnect hint. Returns 409 if the post is already published.
 | Input | Type | Default | Description |
 |---|---|---|---|
 | `post_id` | `string` | — | Post Id |
+
+
+---
+
+## list_linkedin_post_metrics
+
+List per-post LinkedIn metrics for an inclusive date range.
+
+Includes posts published natively on LinkedIn as well as posts
+published through MagicPost, provided they have been imported into
+MagicPost analytics. Use YYYY-MM-DD for `date_from` and `date_to`.
+
+Results are ordered newest first and paginated. When `has_more` is
+true, call this tool again with `cursor=next_cursor` and the same date
+range. Continue until `has_more` is false.
+
+`linkedin_activity_id` and `linkedin_post_id` are LinkedIn identifiers,
+NOT MagicPost UUIDs. They cannot be passed to post editing, scheduling,
+or publishing tools. Metrics that were not collected are null, not 0.
+
+| Input | Type | Default | Description |
+|---|---|---|---|
+| `date_from` | `string` | — | Date From |
+| `date_to` | `string` | — | Date To |
+| `limit` | `integer` | `50` | Limit |
+| `cursor` | `string \| null` | null | Cursor |
 
 
 ---
@@ -501,19 +527,19 @@ Common workflows
 
 | Input | Type | Default | Description |
 |---|---|---|---|
-| `query` | `any` | null | Query |
-| `creator_name` | `any` | null | Creator Name |
-| `poster_urn` | `any` | null | Poster Urn |
-| `languages` | `any` | null | Languages |
-| `formats` | `any` | null | Formats |
-| `post_types` | `any` | null | Post Types |
-| `days_range` | `any` | null | Days Range |
-| `date_from` | `any` | null | Date From |
-| `date_to` | `any` | null | Date To |
-| `min_likes` | `any` | null | Min Likes |
-| `max_likes` | `any` | null | Max Likes |
-| `min_words` | `any` | null | Min Words |
-| `max_words` | `any` | null | Max Words |
+| `query` | `string \| null` | null | Query |
+| `creator_name` | `string \| null` | null | Creator Name |
+| `poster_urn` | `string \| null` | null | Poster Urn |
+| `languages` | `array \| null` | null | Languages |
+| `formats` | `array \| null` | null | Formats |
+| `post_types` | `array \| null` | null | Post Types |
+| `days_range` | `integer \| null` | null | Days Range |
+| `date_from` | `string \| null` | null | Date From |
+| `date_to` | `string \| null` | null | Date To |
+| `min_likes` | `integer \| null` | null | Min Likes |
+| `max_likes` | `integer \| null` | null | Max Likes |
+| `min_words` | `integer \| null` | null | Min Words |
+| `max_words` | `integer \| null` | null | Max Words |
 | `sort_by` | `string` | `'top_likes'` | Sort By |
 | `page` | `integer` | `1` | Page |
 | `limit` | `integer` | `10` | Limit |
@@ -554,11 +580,11 @@ Returns `{items, count, limit, offset, has_more}`.
 
 | Input | Type | Default | Description |
 |---|---|---|---|
-| `icp_id` | `any` | null | Icp Id |
-| `level` | `any` | null | Level |
-| `contact_status` | `any` | null | Contact Status |
-| `search` | `any` | null | Search |
-| `favorite` | `any` | null | Favorite |
+| `icp_id` | `string \| null` | null | Icp Id |
+| `level` | `string \| null` | null | Level |
+| `contact_status` | `string \| null` | null | Contact Status |
+| `search` | `string \| null` | null | Search |
+| `favorite` | `boolean \| null` | null | Favorite |
 | `limit` | `integer` | `20` | Limit |
 | `offset` | `integer` | `0` | Offset |
 
@@ -666,7 +692,7 @@ Two-step confirmation flow:
 | Input | Type | Default | Description |
 |---|---|---|---|
 | `post_urn` | `string` | — | Post Urn |
-| `icp_ids` | `any` | null | Icp Ids |
+| `icp_ids` | `array \| null` | null | Icp Ids |
 | `confirm` | `boolean` | `true` | Confirm |
 
 
@@ -687,10 +713,10 @@ Only the provided fields are modified. Returns the updated lead.
 | Input | Type | Default | Description |
 |---|---|---|---|
 | `prospect_id` | `string` | — | Prospect Id |
-| `contact_status` | `any` | null | Contact Status |
-| `tags` | `any` | null | Tags |
-| `comment` | `any` | null | Comment |
-| `is_favorite` | `any` | null | Is Favorite |
+| `contact_status` | `string \| null` | null | Contact Status |
+| `tags` | `array \| null` | null | Tags |
+| `comment` | `string \| null` | null | Comment |
+| `is_favorite` | `boolean \| null` | null | Is Favorite |
 
 
 ---
@@ -742,7 +768,7 @@ MagicPost have no MagicPost UUID and cannot be acted on.
 | Input | Type | Default | Description |
 |---|---|---|---|
 | `period` | `string` | `'30d'` | Period |
-| `member_user_id` | `any` | null | Member User Id |
+| `member_user_id` | `string \| null` | null | Member User Id |
 | `top_n` | `integer` | `3` | Top N |
 
 
@@ -771,7 +797,7 @@ ONE post's full record (full text, media, stats…), pass that `id` to
 
 | Input | Type | Default | Description |
 |---|---|---|---|
-| `member_user_id` | `any` | null | Member User Id |
+| `member_user_id` | `string \| null` | null | Member User Id |
 | `status` | `string` | `'scheduled'` | Status |
 | `limit` | `integer` | `20` | Limit |
 | `offset` | `integer` | `0` | Offset |
@@ -850,7 +876,7 @@ reconnect — only they can, not you. Surface that hint verbatim.
 | `member_user_id` | `string` | — | Member User Id |
 | `post_id` | `string` | — | Post Id |
 | `at_iso` | `string` | — | At Iso |
-| `timezone` | `any` | null | Timezone |
+| `timezone` | `string \| null` | null | Timezone |
 | `confirm_same_day` | `boolean` | `true` | Confirm Same Day |
 | `confirm_exact_slot` | `boolean` | `true` | Confirm Exact Slot |
 

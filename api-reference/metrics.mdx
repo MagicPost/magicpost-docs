@@ -49,7 +49,7 @@ curl "https://api.magicpost.in/api/v1/metrics/summary?period=30d&top_n=5" \
   },
   "top_posts": [
     {
-      "urn": "urn:li:share:...",
+      "linkedin_share_urn": "urn:li:share:...",
       "post_url": "https://linkedin.com/feed/update/urn:li:...",
       "posted_at": "2026-05-12T07:30:00Z",
       "text_preview": "First 200 chars of the post...",
@@ -61,6 +61,62 @@ curl "https://api.magicpost.in/api/v1/metrics/summary?period=30d&top_n=5" \
   ]
 }
 ```
+
+## GET /api/v1/linkedin-post-metrics
+
+List per-post metrics for the connected LinkedIn profile over an inclusive
+date range. This includes posts published natively on LinkedIn and posts
+published through MagicPost once they have been imported into MagicPost
+analytics.
+
+**Query params**
+
+| Param | Type | Default | Values |
+|---|---|---|---|
+| `date_from` | string | required | ISO date (`YYYY-MM-DD`), inclusive |
+| `date_to` | string | required | ISO date (`YYYY-MM-DD`), inclusive |
+| `limit` | int | `50` | Clamped 1–100 |
+| `cursor` | string | — | Opaque cursor returned by the previous page |
+
+```bash
+curl "https://api.magicpost.in/api/v1/linkedin-post-metrics?date_from=2026-05-01&date_to=2026-06-30&limit=50" \
+  -H "Authorization: Bearer mp_xxx"
+```
+
+The response does not run an exact count over the LinkedIn posts table.
+Follow `next_cursor` while `has_more` is `true`.
+
+```json
+{
+  "date_from": "2026-05-01",
+  "date_to": "2026-06-30",
+  "timezone": "UTC",
+  "limit": 50,
+  "has_more": false,
+  "next_cursor": null,
+  "posts": [
+    {
+      "linkedin_activity_id": "7457337929711902720",
+      "linkedin_post_id": "7457337929711902720",
+      "post_url": "https://www.linkedin.com/feed/update/urn:li:activity:...",
+      "posted_at": "2026-06-12T07:30:00Z",
+      "text_preview": "First 200 characters...",
+      "impressions": 12500,
+      "impressions_available": true,
+      "reactions": 180,
+      "comments": 45,
+      "reposts": 3,
+      "impressions_updated_at": "2026-06-12T08:00:00Z"
+    }
+  ]
+}
+```
+
+`linkedin_activity_id` is the stable identifier used by the MagicPost LinkedIn
+analytics store. `linkedin_post_id` can be null for some native or company
+posts. Neither identifier is a MagicPost post UUID. `impressions_available`
+distinguishes an uncollected impression count (`null`) from a measured value
+of `0`.
 
 ## POST /api/v1/refresh-posts
 
