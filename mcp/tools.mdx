@@ -246,8 +246,9 @@ be fetched with this tool.
 Create a new draft post (no post_id) or update an existing one's text.
 
 This tool only creates or updates text. To add an image, video, or PDF,
-call attach_media_to_post with the returned post_id before scheduling
-or publishing. On success returns
+use attach_media_to_post for a chat-provided file, or the
+prepare_post_media_upload / complete_post_media_upload flow for a local
+file in a code or CLI client. On success returns
 `{success: True, post_id, created: bool}` — use `post_id` (NOT `id`)
 when chaining into schedule_post or publish_post_now.
 
@@ -275,6 +276,59 @@ tool call and copied into permanent MagicPost storage.
 |---|---|---|---|
 | `post_id` | `string` | — | Post Id |
 | `media_file` | `FileReference` | — |  |
+| `alt_text` | `any` | null | Alt Text |
+
+
+---
+
+## prepare_post_media_upload
+
+Prepare a short-lived upload for a local image, video, or PDF.
+
+Use this only when the user explicitly asks to attach a local file and
+the MCP client can upload local bytes over HTTPS, such as Claude Code.
+This remote MCP server cannot read a local file path. Pass only the
+file's base name and optional MIME type.
+
+The target post must be an owned, unscheduled, unpublished draft with
+no poll or existing media. On success, upload the local file bytes
+according to `upload_request` within `expires_in_seconds`, then call
+complete_post_media_upload with the returned `upload_id`.
+
+The upload request uses multipart/form-data:
+- HTTP method: PUT
+- file field: `file`
+- additional field: `cacheControl=3600`
+- headers: `x-upsert: false` and `cache-control: max-age=3600`
+
+Do not pass a local path as `file_name`, and never reuse or disclose
+the signed upload URL after the upload completes.
+
+| Input | Type | Default | Description |
+|---|---|---|---|
+| `post_id` | `string` | — | Post Id |
+| `file_name` | `string` | — | File Name |
+| `mime_type` | `any` | null | Mime Type |
+
+
+---
+
+## complete_post_media_upload
+
+Validate an uploaded local file and attach it to its draft.
+
+Call this only after prepare_post_media_upload succeeded and the client
+uploaded the complete local file using the returned `upload_request`.
+The post_id and upload_id must match that preparation response.
+
+MagicPost verifies ownership, expiry, file size, MIME type, extension,
+and binary signature before attaching the media. Re-calling a
+successfully completed upload is safe and returns success.
+
+| Input | Type | Default | Description |
+|---|---|---|---|
+| `post_id` | `string` | — | Post Id |
+| `upload_id` | `string` | — | Upload Id |
 | `alt_text` | `any` | null | Alt Text |
 
 
@@ -374,18 +428,9 @@ be acted on via the MCP tools.
 
 Trigger a fresh pull of the user's LinkedIn posts and wait until done.
 
-Use this ONLY when the user explicitly asks to refresh their analytics.
-It is a slow, expensive call: the backend scrapes LinkedIn
-synchronously and only responds once the refresh is finished, which can
-take up to a minute or two. Call it once and wait for the result — do
-NOT call it again back-to-back if it errors, as each call re-triggers
-the full scrape.
-
-`max_wait_seconds` is only an upper bound on how long this tool waits;
-with the current backend the call returns as soon as the refresh is
-done, so the default is fine. If the result ever comes back with status
-'timeout', the refresh is still running in the background — tell the
-user to check back shortly instead of calling again.
+Use this when the user explicitly asks to refresh their analytics. The
+tool polls the job status every 2 seconds until it completes or
+max_wait_seconds elapses. Default 90s is enough for typical refreshes.
 
 | Input | Type | Default | Description |
 |---|---|---|---|

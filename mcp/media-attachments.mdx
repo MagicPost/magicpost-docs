@@ -1,14 +1,20 @@
 ---
 title: "Attach media"
-description: "Attach a chat-provided image, video, GIF, or PDF to a MagicPost draft."
+description: "Attach a chat-provided or local image, video, GIF, or PDF to a MagicPost draft."
 icon: "paperclip"
 ---
 
-The `attach_media_to_post` tool copies one file supplied by your MCP client
-into MagicPost and links it to an existing draft. You can then schedule or
-publish the post with its media from the same conversation.
+MagicPost supports two media workflows:
 
-## Workflow
+- `attach_media_to_post` copies a file reference supplied by a chat host such
+  as claude.ai;
+- `prepare_post_media_upload` and `complete_post_media_upload` let code and CLI
+  clients upload bytes from their local filesystem.
+
+Both workflows link one file to an existing draft. You can then schedule or
+publish the post with its media.
+
+## Chat-host workflow
 
 <Steps>
   <Step title="Create or update the draft">
@@ -36,6 +42,52 @@ For example:
   draft in chat and add the media from the MagicPost web app.
 </Note>
 
+## Local-file workflow
+
+Use this workflow with Claude Code or another MCP client that can read a local
+file and perform an HTTPS upload.
+
+<Steps>
+  <Step title="Create or update the draft">
+    Call `create_or_update_post` and keep the returned `post_id`.
+  </Step>
+  <Step title="Prepare the upload">
+    Call `prepare_post_media_upload` with the draft's `post_id`, the file's
+    base name, and its MIME type. The tool returns an `upload_id` and a
+    short-lived multipart `upload_request`.
+  </Step>
+  <Step title="Upload the local bytes">
+    Send the local file to the signed URL exactly as described by
+    `upload_request`. The URL expires after 15 minutes and must not be reused.
+  </Step>
+  <Step title="Complete the upload">
+    Call `complete_post_media_upload` with the same `post_id` and `upload_id`.
+    MagicPost validates the stored file before attaching it to the draft.
+  </Step>
+  <Step title="Schedule or publish">
+    Call `schedule_post` or `publish_post_now` with the draft's `post_id`.
+  </Step>
+</Steps>
+
+In Claude Code, a request can be as simple as:
+
+> Create a LinkedIn draft from this text, attach the local file at
+> `/absolute/path/to/product.png`, then schedule it for tomorrow at 14:00.
+
+Claude Code can read the local file, call the two MagicPost upload tools, and
+perform the signed HTTPS upload between them.
+
+For manual troubleshooting, the equivalent upload shape is:
+
+```bash
+curl --fail-with-body --request PUT \
+  --header 'x-upsert: false' \
+  --header 'cache-control: max-age=3600' \
+  --form 'cacheControl=3600' \
+  --form 'file=@/absolute/path/to/product.png;type=image/png' \
+  '<SIGNED_UPLOAD_URL>'
+```
+
 ## Supported files
 
 | Media | Formats | Maximum size |
@@ -45,7 +97,7 @@ For example:
 | Videos | MP4, MOV, AVI, WebM, WMV | 200 MB |
 | Documents | PDF | 100 MB |
 
-Only one file can be attached to a post through this tool.
+Only one file can be attached to a post through either workflow.
 
 ## Draft requirements
 
@@ -64,19 +116,24 @@ existing media.
 ## Client compatibility
 
 MagicPost declares `media_file` as a file input for MCP hosts that support
-chat-provided files. File attachment behavior still depends on the host and
-its MCP integration.
+chat-provided files. File attachment behavior still depends on the host and its
+MCP integration.
 
-For ChatGPT or Claude, attach the file to the same conversation and explicitly
-ask the assistant to use it with `attach_media_to_post`. If the host does not
-pass a file reference to the tool, use the MagicPost web app for that file.
+For claude.ai and compatible ChatGPT clients, attach the file to the same
+conversation and explicitly ask the assistant to use it with
+`attach_media_to_post`.
+
+Claude Code and CLI hosts do not pass local paths to a remote MCP server. They
+must use the `prepare_post_media_upload` / `complete_post_media_upload` workflow
+instead. A local path is read by the client, never by the MagicPost server.
 
 ## Privacy and transfer
 
-The temporary file URL supplied by the chat host is used only during the tool
-call. MagicPost validates the file type, size, and signature before linking the
-copy stored in MagicPost to your draft. The temporary host URL is not stored in
-the post or included in tool audit data.
+The temporary file URL supplied by a chat host is used only during the tool
+call. For local uploads, the signed storage URL expires after 15 minutes.
+MagicPost validates the file type, size, MIME type, and signature before
+linking the stored copy to your draft. Temporary and signed URLs are not stored
+in the post or included in tool audit data.
 
 The MCP cannot browse your MagicPost media library or retrieve media from past
 posts.
@@ -86,6 +143,9 @@ posts.
 | Error | What to do |
 |---|---|
 | File not available to the tool | Attach the file again in the current conversation and retry. |
+| Local path sent to `attach_media_to_post` | Use the prepare/complete local-file workflow. |
+| Signed upload expired | Call `prepare_post_media_upload` again to create a new upload. |
+| Upload validation failed | Verify the extension, MIME type, size, and actual file contents. |
 | Unsupported type or file too large | Convert or compress the file to a supported format and size. |
 | Post is scheduled | Cancel the schedule, attach the file, then schedule it again. |
 | Post already has media | Use a different draft or edit the media in the MagicPost web app. |
@@ -93,5 +153,7 @@ posts.
 
 ## Tool details
 
-See [`attach_media_to_post` in the tools catalog](/mcp/tools#attach-media-to-post)
-for its generated input schema and description.
+See the generated schemas for
+[`attach_media_to_post`](/mcp/tools#attach-media-to-post),
+[`prepare_post_media_upload`](/mcp/tools#prepare-post-media-upload), and
+[`complete_post_media_upload`](/mcp/tools#complete-post-media-upload).

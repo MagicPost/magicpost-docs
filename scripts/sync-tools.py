@@ -47,7 +47,8 @@ CATEGORIES: dict[str, list[str]] = {
     ],
     "Posts": [
         "list_my_posts", "get_post", "create_or_update_post",
-        "attach_media_to_post",
+        "attach_media_to_post", "prepare_post_media_upload",
+        "complete_post_media_upload",
     ],
     "Scheduling": ["schedule_post", "cancel_scheduled_post", "publish_post_now"],
     "Analytics": ["get_metrics_summary", "refresh_my_posts"],

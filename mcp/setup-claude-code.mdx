@@ -1,0 +1,56 @@
+---
+title: "Setup Claude Code"
+description: "Connect Claude Code to MagicPost and attach local media files."
+icon: "terminal"
+---
+
+Claude Code connects directly to the remote MagicPost MCP server over
+Streamable HTTP. No local MCP bridge is required.
+
+## Connect
+
+From a terminal, add MagicPost to the current project:
+
+```bash
+claude mcp add --transport http --scope local \
+  magicpost https://mcp.magicpost.in/mcp
+```
+
+Then start Claude Code and run:
+
+```text
+/mcp
+```
+
+Select MagicPost and complete the OAuth flow in your browser. Use
+`claude mcp list` or `/mcp` to verify that the server is connected.
+
+## Attach a local file
+
+A remote MCP server cannot read a path on your machine. MagicPost therefore
+uses a signed two-step upload:
+
+1. `prepare_post_media_upload` prepares a short-lived upload request.
+2. Claude Code reads and uploads the local file over HTTPS.
+3. `complete_post_media_upload` validates and attaches it to the draft.
+
+Ask Claude Code:
+
+> Create a LinkedIn post from this text, attach
+> `/absolute/path/to/product.png`, and schedule it for tomorrow at 09:00
+> Europe/Paris.
+
+Claude Code should create the draft, prepare the upload, send the local bytes,
+complete the attachment, and then schedule the post. It should surface any
+same-day or exact-slot warning before forcing the schedule.
+
+<Warning>
+  Local paths only work through the prepare/complete workflow. Do not pass a
+  path as `media_file` to `attach_media_to_post`; that tool expects a temporary
+  file reference supplied by a compatible chat host.
+</Warning>
+
+## Supported media
+
+See [Attach media](/mcp/media-attachments) for supported formats, size limits,
+draft requirements, and troubleshooting.

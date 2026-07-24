@@ -26,6 +26,7 @@
             "pages": [
               "mcp/overview",
               "mcp/setup-claude-desktop",
+              "mcp/setup-claude-code",
               "mcp/setup-cursor",
               "mcp/media-attachments",
               "mcp/tools"
