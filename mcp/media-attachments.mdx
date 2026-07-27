@@ -14,6 +14,12 @@ MagicPost supports two media workflows:
 Both workflows link one file to an existing draft. You can then schedule or
 publish the post with its media.
 
+Organisation `super_admins` can use the same workflows for a team member:
+
+1. Call `create_member_post` with the member's `member_user_id`.
+2. Pass the returned `post_id` and the same `member_user_id` to the media tool.
+3. Call `schedule_member_post` with that member and post.
+
 ## Chat-host workflow
 
 <Steps>
@@ -22,7 +28,8 @@ publish the post with its media.
   </Step>
   <Step title="Attach the file">
     Add the file to the conversation, then call `attach_media_to_post` with the
-    draft's `post_id`. You can also provide optional alt text for an image.
+    draft's `post_id`. For a member-owned draft, also pass `member_user_id`.
+    You can provide optional alt text for an image.
   </Step>
   <Step title="Schedule or publish">
     After the attachment succeeds, call `schedule_post` or
@@ -54,7 +61,8 @@ file and perform an HTTPS upload.
   <Step title="Prepare the upload">
     Call `prepare_post_media_upload` with the draft's `post_id`, the file's
     base name, and its MIME type. The tool returns an `upload_id` and a
-    short-lived multipart `upload_request`.
+    short-lived multipart `upload_request`. For a member-owned draft, also
+    pass `member_user_id`.
   </Step>
   <Step title="Upload the local bytes">
     Send the local file to the signed URL exactly as described by
@@ -62,7 +70,8 @@ file and perform an HTTPS upload.
   </Step>
   <Step title="Complete the upload">
     Call `complete_post_media_upload` with the same `post_id` and `upload_id`.
-    MagicPost validates the stored file before attaching it to the draft.
+    Pass the same `member_user_id` again for a member-owned draft. MagicPost
+    validates the stored file before attaching it to the draft.
   </Step>
   <Step title="Schedule or publish">
     Call `schedule_post` or `publish_post_now` with the draft's `post_id`.
@@ -103,7 +112,8 @@ Only one file can be attached to a post through either workflow.
 
 The target post must:
 
-- belong to your MagicPost account;
+- belong to your MagicPost account, or to a current member of your
+  organisation when you are a `super_admin`;
 - be unpublished and not currently publishing;
 - be unscheduled;
 - have no poll;

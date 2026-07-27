@@ -100,3 +100,32 @@ Update the content of an existing post.
 ```
 
 Returns 404 if you don't own the post (IDOR guard).
+
+## POST /api/v1/org/members/&lt;member_user_id&gt;/posts
+
+Create a draft owned by a member of the caller's organisation. The caller must
+be an organisation `super_admin`, and the target member must still belong to
+the same organisation.
+
+```bash
+curl -X POST \
+  https://api.magicpost.in/api/v1/org/members/member-uuid/posts \
+  -H "Authorization: Bearer mp_xxx" \
+  -H "Content-Type: application/json" \
+  -d '{"content":"A post drafted for this team member."}'
+```
+
+**Response** (HTTP 201)
+
+```json
+{
+  "success": true,
+  "post_id": "new-post-uuid",
+  "member_user_id": "member-uuid",
+  "created": true
+}
+```
+
+MCP clients should use `create_member_post`. To attach media, pass both the
+returned `post_id` and the same `member_user_id` to the appropriate media
+tool, then call `schedule_member_post`.

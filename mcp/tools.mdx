@@ -262,11 +262,15 @@ when chaining into schedule_post or publish_post_now.
 
 ## attach_media_to_post
 
-Attach one chat-provided image, video, or PDF to an owned draft.
+Attach one chat-provided image, video, or PDF to a draft.
 
 Call this after create_or_update_post and before schedule_post or
 publish_post_now. The post must be an unscheduled, unpublished draft,
 must not contain a poll, and must not already have media.
+
+For a draft created by `create_member_post`, pass the same
+`member_user_id` here, then use `schedule_member_post`. Only an org
+super_admin can attach media to a member-owned draft.
 
 `media_file` is a temporary file reference supplied by the chat host.
 Never invent or reuse its `download_url`: it is consumed during this
@@ -277,6 +281,7 @@ tool call and copied into permanent MagicPost storage.
 | `post_id` | `string` | — | Post Id |
 | `media_file` | `FileReference` | — |  |
 | `alt_text` | `string \| null` | null | Alt Text |
+| `member_user_id` | `string \| null` | null | Member User Id |
 
 
 ---
@@ -304,11 +309,15 @@ The upload request uses multipart/form-data:
 Do not pass a local path as `file_name`, and never reuse or disclose
 the signed upload URL after the upload completes.
 
+For a member-owned draft, pass the `member_user_id` returned by
+`list_org_members` and pass it again to complete_post_media_upload.
+
 | Input | Type | Default | Description |
 |---|---|---|---|
 | `post_id` | `string` | — | Post Id |
 | `file_name` | `string` | — | File Name |
 | `mime_type` | `string \| null` | null | Mime Type |
+| `member_user_id` | `string \| null` | null | Member User Id |
 
 
 ---
@@ -320,6 +329,8 @@ Validate an uploaded local file and attach it to its draft.
 Call this only after prepare_post_media_upload succeeded and the client
 uploaded the complete local file using the returned `upload_request`.
 The post_id and upload_id must match that preparation response.
+For a member-owned draft, pass the same `member_user_id` used during
+prepare_post_media_upload.
 
 MagicPost verifies ownership, expiry, file size, MIME type, extension,
 and binary signature before attaching the media. Re-calling a
@@ -330,6 +341,7 @@ successfully completed upload is safe and returns success.
 | `post_id` | `string` | — | Post Id |
 | `upload_id` | `string` | — | Upload Id |
 | `alt_text` | `string \| null` | null | Alt Text |
+| `member_user_id` | `string \| null` | null | Member User Id |
 
 
 ---
@@ -423,9 +435,13 @@ or publishing tools. Metrics that were not collected are null, not 0.
 
 Get a compact summary of the user's LinkedIn analytics.
 
-Returns top-line totals (impressions, likes, comments, reposts) and the
-top N posts by impressions. Use `period` to scope the window. For most
-questions like "how did I perform recently?" use '30d'.
+Returns top-line totals, follower growth for the selected period, and
+the top N posts by impressions. `followers.gained` is null when
+LinkedIn did not provide enough snapshots to cover the whole period.
+Check `followers.coverage`; `available_range_gained` is explicitly
+limited to the returned coverage dates.
+Use `period` to scope the window. For most questions like "how did I
+perform recently?" use '30d'.
 
 Identifiers — IMPORTANT:
 `top_posts[].linkedin_share_urn` is the LinkedIn share URN, NOT the
@@ -743,14 +759,18 @@ _No inputs._
 Compact analytics for the org or one specific member.
 
 - When `member_user_id` is omitted: returns one compact summary per
-  team member (name, totals, top posts). Use this for "how is the
-  team doing?" questions.
+  team member (name, totals, follower growth, top posts). Use this for
+  "how is the team doing?" questions.
 - When `member_user_id` is set: returns ONE detailed summary for
   that member, same shape as `get_metrics_summary` for the caller's
   own account.
 
 `top_n` defaults to 3 in team view (response stays token-efficient
 for an LLM); set higher when drilling into a single member.
+
+`summary.followers.gained` is null when LinkedIn did not provide
+enough snapshots to cover the whole period. Check follower `coverage`;
+`available_range_gained` only covers the returned dates.
 
 Identifiers — IMPORTANT:
 `top_posts[].linkedin_share_urn` is the LinkedIn share URN, NOT the
@@ -844,6 +864,27 @@ posts and will return `post_not_found` for anything you don't own.
 |---|---|---|---|
 | `member_user_id` | `string` | — | Member User Id |
 | `post_id` | `string` | — | Post Id |
+
+
+---
+
+## create_member_post
+
+Create a draft owned by a specific organisation member.
+
+Only callable by org super_admins. Get `member_user_id` from
+`list_org_members`. The returned `post_id` belongs to that member and
+can be passed to `schedule_member_post`.
+
+To attach media first, call `attach_media_to_post` with both the
+returned `post_id` and the same `member_user_id`. For a local file in
+a code client, pass that member id through both
+`prepare_post_media_upload` and `complete_post_media_upload`.
+
+| Input | Type | Default | Description |
+|---|---|---|---|
+| `member_user_id` | `string` | — | Member User Id |
+| `content` | `string` | — | Content |
 
 
 ---

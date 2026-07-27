@@ -61,7 +61,7 @@ CATEGORIES: dict[str, list[str]] = {
     ],
     "Org / team": [
         "list_org_members", "get_org_metrics_summary", "list_org_member_posts",
-        "get_org_member_post", "schedule_member_post",
+        "get_org_member_post", "create_member_post", "schedule_member_post",
     ],
 }
 

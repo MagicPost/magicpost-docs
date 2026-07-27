@@ -12,7 +12,7 @@ Compact KPI snapshot + top N posts by impressions.
 
 | Param | Type | Default | Values |
 |---|---|---|---|
-| `period` | string | `30d` | `7d`, `30d`, `90d`, `180d`, `all` |
+| `period` | string | `30d` | `7d`, `30d`, `90d`, `180d`, `365d`, `all` |
 | `top_n` | int | `5` | Clamped 1–20 |
 
 ```bash
@@ -32,7 +32,20 @@ curl "https://api.magicpost.in/api/v1/metrics/summary?period=30d&top_n=5" \
   },
   "access": {
     "linkedin_connected": true,
-    "impressions_access": true
+    "impressions_access": true,
+    "followers_data_available": true
+  },
+  "followers": {
+    "current_total": 24174,
+    "gained": 327,
+    "available_range_gained": 327,
+    "data_available": true,
+    "data_points": 30,
+    "coverage": {
+      "complete": true,
+      "date_from": "2026-06-28",
+      "date_to": "2026-07-27"
+    }
   },
   "totals": {
     "posts_count": 10,
@@ -61,6 +74,15 @@ curl "https://api.magicpost.in/api/v1/metrics/summary?period=30d&top_n=5" \
   ]
 }
 ```
+
+`followers.gained` is the sum of LinkedIn's follower snapshots only when the
+whole selected period is covered. It is `null`, not `0`, when coverage is
+partial or unavailable. `followers.available_range_gained` contains the sum
+for the explicit `coverage.date_from` to `coverage.date_to` range.
+
+Use `coverage.complete` and `data_available` to distinguish full coverage,
+partial history, missing data, and measured zero growth. The `all` period
+cannot guarantee lifetime coverage and therefore returns `gained: null`.
 
 ## GET /api/v1/linkedin-post-metrics
 
