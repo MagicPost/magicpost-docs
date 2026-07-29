@@ -440,6 +440,10 @@ the top N posts by impressions. `followers.gained` is null when
 LinkedIn did not provide enough snapshots to cover the whole period.
 Check `followers.coverage`; `available_range_gained` is explicitly
 limited to the returned coverage dates.
+`followers.daily` returns compact `{date, gained}` points, so use one
+multi-day call instead of one request per day when building a roll-up.
+These are profile-level daily gains, not followers attributed to a
+specific post.
 Use `period` to scope the window. For most questions like "how did I
 perform recently?" use '30d'.
 
@@ -771,6 +775,7 @@ for an LLM); set higher when drilling into a single member.
 `summary.followers.gained` is null when LinkedIn did not provide
 enough snapshots to cover the whole period. Check follower `coverage`;
 `available_range_gained` only covers the returned dates.
+`summary.followers.daily` contains profile-level daily gains.
 
 Identifiers — IMPORTANT:
 `top_posts[].linkedin_share_urn` is the LinkedIn share URN, NOT the
