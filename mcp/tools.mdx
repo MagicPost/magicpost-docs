@@ -470,13 +470,30 @@ be acted on via the MCP tools.
 
 ---
 
+## get_metrics_freshness
+
+Check when LinkedIn post metrics were last updated.
+
+Call this before `refresh_my_posts`. When `should_refresh` is false,
+reuse the stored metrics instead of starting another refresh. When no
+metrics timestamp exists, `data_available` is false and
+`should_refresh` is true.
+
+| Input | Type | Default | Description |
+|---|---|---|---|
+| `max_age_minutes` | `integer` | `60` | Max Age Minutes |
+
+
+---
+
 ## refresh_my_posts
 
 Trigger a fresh pull of the user's LinkedIn posts and wait until done.
 
-Use this when the user explicitly asks to refresh their analytics. The
-tool polls the job status every 2 seconds until it completes or
-max_wait_seconds elapses. Default 90s is enough for typical refreshes.
+Check `get_metrics_freshness` first. If `should_refresh` is false, do
+not start another refresh unless the user explicitly requires a forced
+refresh. This tool polls the job status every 2 seconds until it
+completes or max_wait_seconds elapses.
 
 | Input | Type | Default | Description |
 |---|---|---|---|

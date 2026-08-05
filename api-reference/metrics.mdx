@@ -149,6 +149,33 @@ posts. Neither identifier is a MagicPost post UUID. `impressions_available`
 distinguishes an uncollected impression count (`null`) from a measured value
 of `0`.
 
+## GET /api/v1/metrics/freshness
+
+Check the latest stored LinkedIn post-metrics timestamp without triggering a
+refresh. Use this endpoint before `/refresh-posts`.
+
+```bash
+curl "https://api.magicpost.in/api/v1/metrics/freshness?max_age_minutes=60" \
+  -H "Authorization: Bearer mp_xxx"
+```
+
+**Response**
+
+```json
+{
+  "last_metrics_updated_at": "2026-08-05T08:12:00Z",
+  "checked_at": "2026-08-05T08:42:00Z",
+  "age_seconds": 1800,
+  "max_age_minutes": 60,
+  "data_available": true,
+  "is_fresh": true,
+  "should_refresh": false
+}
+```
+
+Skip the refresh when `should_refresh` is `false`. If no metrics timestamp is
+available, `data_available` is `false` and `should_refresh` is `true`.
+
 ## POST /api/v1/refresh-posts
 
 Trigger a fresh pull of LinkedIn data. **Rate-limited at 5 req/min.**

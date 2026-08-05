@@ -52,7 +52,8 @@ CATEGORIES: dict[str, list[str]] = {
     ],
     "Scheduling": ["schedule_post", "cancel_scheduled_post", "publish_post_now"],
     "Analytics": [
-        "list_linkedin_post_metrics", "get_metrics_summary", "refresh_my_posts",
+        "list_linkedin_post_metrics", "get_metrics_summary",
+        "get_metrics_freshness", "refresh_my_posts",
     ],
     "Inspiration": ["search_inspiration_posts"],
     "Leads & CRM": [
