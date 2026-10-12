@@ -266,7 +266,10 @@ Attach one chat-provided image, video, or PDF to a draft.
 
 Call this after create_or_update_post and before schedule_post or
 publish_post_now. The post must be an unscheduled, unpublished draft,
-must not contain a poll, and must not already have media.
+must not contain a poll. Set replace_existing=True to replace ALL
+existing attachments with this file after validation succeeds.
+The post ID and scheduled comments are preserved. alt_text is limited
+to 1000 characters; the separate title is limited to 400 characters.
 
 For a draft created by `create_member_post`, pass the same
 `member_user_id` here, then use `schedule_member_post`. Only an org
@@ -279,9 +282,11 @@ tool call and copied into permanent MagicPost storage.
 | Input | Type | Default | Description |
 |---|---|---|---|
 | `post_id` | `string` | — | Post Id |
-| `media_file` | `FileReference` | — |  |
+| `media_file` | `object` | — | Media File |
 | `alt_text` | `string \| null` | null | Alt Text |
 | `member_user_id` | `string \| null` | null | Member User Id |
+| `replace_existing` | `boolean` | `false` | Replace Existing |
+| `title` | `string \| null` | null | Title |
 
 
 ---
@@ -290,27 +295,15 @@ tool call and copied into permanent MagicPost storage.
 
 Prepare a short-lived upload for a local image, video, or PDF.
 
-Use this only when the user explicitly asks to attach a local file and
-the MCP client can upload local bytes over HTTPS, such as Claude Code.
-This remote MCP server cannot read a local file path. Pass only the
-file's base name and optional MIME type.
-
-The target post must be an owned, unscheduled, unpublished draft with
-no poll or existing media. On success, upload the local file bytes
-according to `upload_request` within `expires_in_seconds`, then call
+Use this when the MCP client can upload local bytes over HTTPS, such as
+Claude Code. This remote server cannot read a local file path. Upload
+the bytes according to `upload_request`, then call
 complete_post_media_upload with the returned `upload_id`.
 
-The upload request uses multipart/form-data:
-- HTTP method: PUT
-- file field: `file`
-- additional field: `cacheControl=3600`
-- headers: `x-upsert: false` and `cache-control: max-age=3600`
-
-Do not pass a local path as `file_name`, and never reuse or disclose
-the signed upload URL after the upload completes.
-
 For a member-owned draft, pass the `member_user_id` returned by
-`list_org_members` and pass it again to complete_post_media_upload.
+`list_org_members` and pass it again when completing the upload.
+To replace all existing attachments, pass replace_existing=True here
+AND when completing. Existing media stays until completion succeeds.
 
 | Input | Type | Default | Description |
 |---|---|---|---|
@@ -318,6 +311,7 @@ For a member-owned draft, pass the `member_user_id` returned by
 | `file_name` | `string` | — | File Name |
 | `mime_type` | `string \| null` | null | Mime Type |
 | `member_user_id` | `string \| null` | null | Member User Id |
+| `replace_existing` | `boolean` | `false` | Replace Existing |
 
 
 ---
@@ -326,15 +320,11 @@ For a member-owned draft, pass the `member_user_id` returned by
 
 Validate an uploaded local file and attach it to its draft.
 
-Call this only after prepare_post_media_upload succeeded and the client
-uploaded the complete local file using the returned `upload_request`.
-The post_id and upload_id must match that preparation response.
-For a member-owned draft, pass the same `member_user_id` used during
-prepare_post_media_upload.
-
-MagicPost verifies ownership, expiry, file size, MIME type, extension,
-and binary signature before attaching the media. Re-calling a
-successfully completed upload is safe and returns success.
+Call this after prepare_post_media_upload and the HTTPS upload. For a
+member-owned draft, pass the same `member_user_id` used to prepare it.
+Re-calling a successfully completed upload is safe.
+Use replace_existing=True to replace all attachments, keeping the post
+and its comments. alt_text: max 1000 characters; title: max 400.
 
 | Input | Type | Default | Description |
 |---|---|---|---|
@@ -342,6 +332,64 @@ successfully completed upload is safe and returns success.
 | `upload_id` | `string` | — | Upload Id |
 | `alt_text` | `string \| null` | null | Alt Text |
 | `member_user_id` | `string \| null` | null | Member User Id |
+| `replace_existing` | `boolean` | `false` | Replace Existing |
+| `title` | `string \| null` | null | Title |
+
+
+---
+
+## update_post_media
+
+Edit an existing draft attachment without losing its scheduled comments.
+
+Read media_url from get_post's file_post; never invent it. Cancel any
+schedule first. Supply alt_text (max 1000 characters) and/or title
+(max 400); omitted fields stay unchanged, an empty string clears one.
+This does not replace the file. Use the upload tools with
+replace_existing=True for replacement. Published posts cannot change.
+
+| Input | Type | Default | Description |
+|---|---|---|---|
+| `post_id` | `string` | — | Post Id |
+| `media_url` | `string` | — | Media Url |
+| `alt_text` | `string \| null` | null | Alt Text |
+| `title` | `string \| null` | null | Title |
+| `member_user_id` | `string \| null` | null | Member User Id |
+
+
+---
+
+## add_idea_to_notebook
+
+Save a post idea to the user's MagicPost Idea notebook, to write
+later. The idea appears at the top of the notebook's backlog column,
+like an idea typed in the app.
+
+Use this when the user asks things like:
+  - "Save this idea in my MagicPost notebook"
+  - "Add these 3 topics to my ideas"
+For several ideas, call the tool once per idea.
+
+Parameters
+----------
+- idea: the idea itself, short (a topic, an angle, a hook). Max 2000
+  characters.
+- notes: optional longer context kept with the idea (sources, angle,
+  personal anecdote, outline). Max 20000 characters.
+
+This does NOT write a post. To draft a post now, use generate_post or
+create_or_update_post.
+
+Returns
+-------
+`{success, idea_id, idea, notes, created_at}`. The call is not
+retried: on a network error, check with the user before calling again,
+or the idea may be saved twice.
+
+| Input | Type | Default | Description |
+|---|---|---|---|
+| `idea` | `string` | — | Idea |
+| `notes` | `string \| null` | null | Notes |
 
 
 ---
@@ -366,6 +414,11 @@ Schedule a post for future publication on LinkedIn.
 
 When LinkedIn token is expired, returns `actionable: true` with a
 hint — surface it to the user verbatim, do not retry blindly.
+
+Returns `error_type='daily_post_limit_reached'` (429) with `limit` and
+`retry_at` when this slot would exceed the number of posts the
+LinkedIn profile may publish per 24 hours (published and scheduled
+posts both count). Tell the user and pick a later slot: do not retry.
 
 | Input | Type | Default | Description |
 |---|---|---|---|
@@ -397,6 +450,9 @@ Publish a post to LinkedIn immediately (no schedule).
 
 On LinkedIn token expired, returns `actionable: true` with a
 reconnect hint. Returns 409 if the post is already published.
+Returns `error_type='daily_post_limit_reached'` (429) with `limit` and
+`retry_at` when the LinkedIn profile already reached its number of
+posts per 24 hours: tell the user, do not retry.
 
 | Input | Type | Default | Description |
 |---|---|---|---|
@@ -417,9 +473,21 @@ Results are ordered newest first and paginated. When `has_more` is
 true, call this tool again with `cursor=next_cursor` and the same date
 range. Continue until `has_more` is false.
 
-`linkedin_activity_id` and `linkedin_post_id` are LinkedIn identifiers,
-NOT MagicPost UUIDs. They cannot be passed to post editing, scheduling,
-or publishing tools. Metrics that were not collected are null, not 0.
+`linkedin_activity_id` and `linkedin_post_id` are not MagicPost UUIDs
+and cannot be passed to editing, scheduling, or publishing tools.
+Metrics that were not collected are null, not 0.
+
+Beyond `impressions`, `reactions`, `comments` and `reposts`, each post
+carries LinkedIn's extended analytics: `reach` (unique members who saw
+the post), `saves`, `link_clicks`, `premium_cta_clicks` and
+`profile_views` (profile visits generated by the post). They are null
+until LinkedIn has been asked for them, which `advanced_metrics_available`
+tells you (`advanced_metrics_updated_at` gives the date). A 0 means
+LinkedIn answered zero, so never read a null as a zero.
+When the connected identity is a company page, LinkedIn does not measure
+`saves`, `premium_cta_clicks` or `profile_views` at all: they come back
+null and are listed in `advanced_metrics_unavailable_for_profile_type`.
+Say the metric does not exist for pages rather than reporting zero.
 
 | Input | Type | Default | Description |
 |---|---|---|---|
@@ -436,7 +504,20 @@ or publishing tools. Metrics that were not collected are null, not 0.
 Get a compact summary of the user's LinkedIn analytics.
 
 Returns top-line totals, follower growth for the selected period, and
-the top N posts by impressions. `followers.gained` is null when
+the top N posts by impressions.
+`totals` and `averages_per_post` cover impressions, likes, comments and
+reposts, plus LinkedIn's extended analytics: `reach` (unique members
+reached), `saves`, `link_clicks`, `premium_cta_clicks` and
+`profile_views`. Those five are null when no post in the window carries
+them, and their average is computed over the posts that do, not over
+every post in the window. `advanced_metrics_coverage.posts_with_data`
+gives that count per metric, so compare it to `totals.posts_count`
+before reading an extended figure as a period total. On a company page,
+LinkedIn does not measure `saves`, `premium_cta_clicks` or
+`profile_views`: they are null and listed in
+`advanced_metrics_coverage.unavailable_for_profile_type`, so say the
+metric does not exist for pages rather than reporting zero.
+`followers.gained` is null when
 LinkedIn did not provide enough snapshots to cover the whole period.
 Check `followers.coverage`; `available_range_gained` is explicitly
 limited to the returned coverage dates.
@@ -492,8 +573,17 @@ Trigger a fresh pull of the user's LinkedIn posts and wait until done.
 
 Check `get_metrics_freshness` first. If `should_refresh` is false, do
 not start another refresh unless the user explicitly requires a forced
-refresh. This tool polls the job status every 2 seconds until it
-completes or max_wait_seconds elapses.
+refresh. It is a slow, expensive call: the backend scrapes LinkedIn
+synchronously and only responds once the refresh is finished, which can
+take up to a minute or two. Call it once and wait for the result — do
+NOT call it again back-to-back if it errors, as each call re-triggers
+the full scrape.
+
+`max_wait_seconds` is only an upper bound on how long this tool waits;
+with the current backend the call returns as soon as the refresh is
+done, so the default is fine. If the result ever comes back with status
+'timeout', the refresh is still running in the background — tell the
+user to check back shortly instead of calling again.
 
 | Input | Type | Default | Description |
 |---|---|---|---|
@@ -592,10 +682,11 @@ engagement on their posts and qualified against their ICPs).
 Filters
 -------
 - icp_id: scope the list to one ICP. When set, each lead embeds its
-  qualification against that ICP (level A/B/C/D + icebreaker).
+  qualification against that ICP (level A/B/C + icebreaker).
   Get valid ids from `list_icps`.
-- level: qualification level filter (A is the best fit, D the worst).
-  Only effective when `icp_id` is also provided.
+- level: qualification level filter (A is the best fit, C the
+  weakest listed — D-scored profiles are not leads: never billed,
+  never listed). Only effective when `icp_id` is also provided.
 - contact_status: pipeline status slug. Defaults are 'not_contacted',
   'contacted', 'in_discussion', 'to_follow_up', 'won', 'lost',
   'not_relevant' (users can customize them).
@@ -649,7 +740,8 @@ List the user's ICPs (Ideal Customer Profiles).
 
 Needed to get the `icp_id` values used by `list_leads` (scoping) and
 `detect_leads` (targeting). Each ICP describes the kind of prospect
-the user wants to detect; leads are scored A/B/C/D against it.
+the user wants to detect; leads are scored A/B/C against it (a
+D-scored profile is not a lead: free, and never listed).
 
 _No inputs._
 
@@ -690,9 +782,17 @@ _No inputs._
 Detect new leads from the engagement (likes + comments) on one of
 the user's LinkedIn posts.
 
-⚠️ CONSUMES LEAD CREDITS — 1 credit per scored prospect. The exact
-cost is NOT known upfront: every engager matching an ICP gets scored
-(potentially dozens on a popular post), so never promise a number.
+post_urn accepts a numeric activity ID, urn:li:activity:..., or the
+share_urn returned by get_post (urn:li:share:... / urn:li:ugcPost:...).
+The post must be synced to the connected LinkedIn profile; direct
+reposts are excluded. A post_not_found error requires correcting the
+reference or connected profile, not retrying the same call.
+
+⚠️ CONSUMES LEAD CREDITS — 1 credit per prospect scored with at
+least a Medium ICP fit (level A/B/C; weak D fits are free and
+discarded). The exact cost is NOT known upfront: every engager
+matching an ICP gets scored (potentially dozens on a popular post),
+so never promise a number.
 
 ⚠️ OTHER SIDE EFFECTS — a completed detection also:
 - pushes the qualified leads to the user's connected external CRMs
@@ -899,9 +999,7 @@ Only callable by org super_admins. Get `member_user_id` from
 can be passed to `schedule_member_post`.
 
 To attach media first, call `attach_media_to_post` with both the
-returned `post_id` and the same `member_user_id`. For a local file in
-a code client, pass that member id through both
-`prepare_post_media_upload` and `complete_post_media_upload`.
+returned `post_id` and the same `member_user_id`.
 
 | Input | Type | Default | Description |
 |---|---|---|---|
