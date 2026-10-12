@@ -55,6 +55,7 @@ CATEGORIES: dict[str, list[str]] = {
         "schedule_post", "cancel_scheduled_post", "publish_post_now",
         "schedule_post_comment", "delete_post_comment",
     ],
+    "Comments": ["list_received_comments", "sync_received_comments"],
     "Analytics": [
         "list_linkedin_post_metrics", "get_metrics_summary",
         "get_metrics_freshness", "refresh_my_posts",

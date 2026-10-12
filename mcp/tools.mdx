@@ -418,6 +418,58 @@ published) cannot be removed here: `comment_already_published` (409).
 
 ---
 
+## list_received_comments
+
+List the comments people left on one of the user's published
+LinkedIn posts: text, author (name, headline, profile URL), date, and
+whether it is a reply (with its parent comment).
+
+Pass exactly one of `post_id` (MagicPost UUID of a post published
+through MagicPost) or `linkedin_activity_id` (from
+list_linkedin_post_metrics, works for any post of the user). Only the
+user's own posts are allowed.
+
+This reads what MagicPost has already collected, it costs nothing.
+Comments are collected by a third-party provider, not by LinkedIn's
+official API, and only when a sync runs: compare `comments_stored`
+with `post.comments_on_linkedin` and look at `last_sync`. If comments
+are missing or stale, call sync_received_comments, wait about a
+minute, then call this tool again.
+
+`synced: false` means the post is not imported yet (just published):
+retry later.
+
+| Input | Type | Default | Description |
+|---|---|---|---|
+| `post_id` | `string \| null` | null | Post Id |
+| `linkedin_activity_id` | `string \| null` | null | Linkedin Activity Id |
+
+
+---
+
+## sync_received_comments
+
+Fetch the latest comments of one of the user's published posts from
+LinkedIn (through MagicPost's data provider), in the background.
+Same references as list_received_comments.
+
+Uses one unit of the user's daily comment sync quota (returned in
+`sync_quota`); a sync already running or started less than a few
+minutes ago returns `already_running` and costs nothing. On
+`comment_sync_quota_reached`, do not retry: read the stored comments.
+
+Returns `status: running` right away. Wait about a minute (longer for
+posts with hundreds of comments), then call list_received_comments:
+`last_sync.state` tells whether the sync is done.
+
+| Input | Type | Default | Description |
+|---|---|---|---|
+| `post_id` | `string \| null` | null | Post Id |
+| `linkedin_activity_id` | `string \| null` | null | Linkedin Activity Id |
+
+
+---
+
 ## score_post
 
 Run MagicPost's Post AI score on a LinkedIn post: the same scan as
