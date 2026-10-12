@@ -48,10 +48,13 @@ CATEGORIES: dict[str, list[str]] = {
     "Posts": [
         "list_my_posts", "get_post", "create_or_update_post",
         "attach_media_to_post", "prepare_post_media_upload",
-        "complete_post_media_upload", "update_post_media",
+        "complete_post_media_upload", "update_post_media", "score_post",
     ],
     "Ideas": ["add_idea_to_notebook"],
-    "Scheduling": ["schedule_post", "cancel_scheduled_post", "publish_post_now"],
+    "Scheduling": [
+        "schedule_post", "cancel_scheduled_post", "publish_post_now",
+        "schedule_post_comment", "delete_post_comment",
+    ],
     "Analytics": [
         "list_linkedin_post_metrics", "get_metrics_summary",
         "get_metrics_freshness", "refresh_my_posts",
