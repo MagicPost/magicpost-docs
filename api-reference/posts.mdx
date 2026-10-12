@@ -58,6 +58,46 @@ curl https://api.magicpost.in/api/v1/posts/uuid \
   -H "Authorization: Bearer mp_xxx"
 ```
 
+**Response**
+
+```json
+{
+  "post": { "id": "uuid", "post_content": "...", "...": "full post record" },
+  "publication": {
+    "state": "failed",
+    "scheduled_at": "2026-09-10T12:30:00+00:00",
+    "published_at": null,
+    "linkedin_url": null,
+    "error": {
+      "message": "Response error, code 422: {\"message\":\"ERROR :: /content/media/title :: ...\"}",
+      "linkedin_status": 422,
+      "linkedin_body": "{\"message\":\"ERROR :: /content/media/title :: ...\"}"
+    }
+  },
+  "scheduled_comments": [
+    {
+      "comment_id": "uuid",
+      "text": "Link in the first comment: https://...",
+      "minutes_after": 1,
+      "state": null,
+      "publish_at": null,
+      "comment_url": null,
+      "is_draft": false
+    }
+  ]
+}
+```
+
+`publication.state` is one of `draft`, `scheduled`, `publishing`, `retrying`,
+`published`, `failed`, `missed` (the scheduled time passed by more than 10
+minutes without publication: the post will not go out on its own, reschedule
+it). `error` is set only on `failed` and `retrying`;
+`linkedin_status` and `linkedin_body` are LinkedIn's own answer when LinkedIn
+refused the post (they are `null` for other errors, e.g. an expired token).
+Check it right after a scheduled time to fix and republish without waiting
+for the failure email. `scheduled_comments` lists the comments armed on the
+post (see [Comments, AI score and ideas](/api-reference/content)).
+
 ## POST /api/v1/posts
 
 Create a draft post.

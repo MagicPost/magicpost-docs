@@ -137,7 +137,16 @@ Follow `next_cursor` while `has_more` is `true`.
       "reactions": 180,
       "comments": 45,
       "reposts": 3,
-      "impressions_updated_at": "2026-06-12T08:00:00Z"
+      "impressions_updated_at": "2026-06-12T08:00:00Z",
+      "advanced_metrics_available": true,
+      "advanced_metrics_updated_at": "2026-06-15T07:30:00Z",
+      "reach": 8400,
+      "saves": 21,
+      "link_clicks": 64,
+      "premium_cta_clicks": 0,
+      "profile_views": 37,
+      "sends": 12,
+      "followers_gained": 9
     }
   ]
 }
@@ -148,6 +157,14 @@ analytics store. `linkedin_post_id` can be null for some native or company
 posts. Neither identifier is a MagicPost post UUID. `impressions_available`
 distinguishes an uncollected impression count (`null`) from a measured value
 of `0`.
+
+The extended metrics (`reach`, `saves`, `link_clicks`, `premium_cta_clicks`,
+`profile_views`, `sends`, `followers_gained`) are `null` until LinkedIn has
+been asked for them (`advanced_metrics_available`). `sends` and
+`followers_gained` are collected from October 2026 onward, so older posts
+return `null`. On a company page, LinkedIn does not measure `saves`,
+`premium_cta_clicks`, `profile_views`, `sends` or `followers_gained`: they are
+`null` and listed in `advanced_metrics_unavailable_for_profile_type`.
 
 ## GET /api/v1/metrics/freshness
 

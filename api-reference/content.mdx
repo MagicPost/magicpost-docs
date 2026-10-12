@@ -1,0 +1,219 @@
+---
+title: "Comments, AI score and ideas"
+description: "Arm a first comment, read the comments you received, score a post, save an idea."
+icon: "comments"
+---
+
+## POST /api/v1/posts/&lt;post_id&gt;/comments
+
+Arm a comment (typically the "first comment" with a link) that MagicPost
+publishes under your post, `minutes_after` minutes after the post goes live.
+The post must be yours and not published yet: a draft, or a scheduled post.
+The comment follows the post's real publication time.
+
+**Body**
+
+```json
+{ "text": "The link: https://...", "minutes_after": 1 }
+```
+
+- `text` (required): up to 1250 characters (LinkedIn's limit).
+- `minutes_after`: integer from `0` (right after publication) to `10080`
+  (one week). Default `0`.
+
+**Response** (HTTP 201)
+
+```json
+{
+  "success": true,
+  "post_id": "uuid",
+  "comment_id": "uuid",
+  "text": "The link: https://...",
+  "minutes_after": 1,
+  "state": null,
+  "publish_at": null,
+  "comment_url": null,
+  "is_draft": false
+}
+```
+
+Errors: `post_already_published` (409) when the post is live or being
+published, `failed_tag` (400, with `failed_urns`) when a mentioned member
+can't be tagged, `scheduled_comments_forbidden` (403) when your plan doesn't
+include scheduled comments. MCP: `schedule_post_comment`.
+
+## DELETE /api/v1/posts/&lt;post_id&gt;/comments/&lt;comment_id&gt;
+
+Remove an armed comment before it is published.
+`comment_already_published` (409) once it is sent. MCP: `delete_post_comment`.
+
+```json
+{ "success": true, "deleted_comment_id": "uuid" }
+```
+
+## GET /api/v1/received-comments
+
+Comments people left on one of your published posts, as collected so far.
+Reading costs nothing.
+
+**Query params**: exactly one of
+
+| Param | Type | Description |
+|---|---|---|
+| `post_id` | string | MagicPost UUID of a post published through MagicPost |
+| `linkedin_activity_id` | string | From `/linkedin-post-metrics`, works for any of your posts |
+
+```bash
+curl "https://api.magicpost.in/api/v1/received-comments?linkedin_activity_id=7511039900922822656" \
+  -H "Authorization: Bearer mp_xxx"
+```
+
+**Response**
+
+```json
+{
+  "success": true,
+  "source": "provider",
+  "synced": true,
+  "post": {
+    "linkedin_activity_id": "7511039900922822656",
+    "post_url": "https://www.linkedin.com/feed/update/urn:li:activity:...",
+    "comments_on_linkedin": 102
+  },
+  "last_sync": {
+    "state": "done",
+    "started_at": "2026-10-04T22:14:10Z",
+    "finished_at": "2026-10-04T22:15:02Z",
+    "comments_collected": 101,
+    "comments_new": 101,
+    "error": null
+  },
+  "comments_stored": 101,
+  "truncated": false,
+  "comments": [
+    {
+      "comment_id": "urn:li:comment:7511783863614935040",
+      "text": "Great post",
+      "published_at": "2026-10-04T10:00:00Z",
+      "is_reply": false,
+      "parent_comment_id": null,
+      "permalink": "https://www.linkedin.com/feed/update/...",
+      "is_mine": false,
+      "author": {
+        "name": "Jane Doe",
+        "headline": "CEO at Acme",
+        "profile_url": "https://www.linkedin.com/in/...",
+        "public_urn": "ACoAA..."
+      }
+    }
+  ]
+}
+```
+
+Comments are collected from LinkedIn by a third-party data provider, not by
+LinkedIn's official API, and only when a sync runs. Compare
+`comments_stored` with `post.comments_on_linkedin`, and check `last_sync`.
+Only your own posts are allowed (403 otherwise). `synced: false` means the
+post is not imported yet. At most 500 comments are returned (`truncated`).
+MCP: `list_received_comments`.
+
+## POST /api/v1/received-comments/sync
+
+Fetch the latest comments of one of your posts, in the background. Same body
+fields as the query params above.
+
+```json
+{ "linkedin_activity_id": "7511039900922822656" }
+```
+
+**Response** (HTTP 202)
+
+```json
+{
+  "success": true,
+  "status": "running",
+  "started_at": "2026-10-12T10:00:00Z",
+  "post": { "linkedin_activity_id": "...", "post_url": "...", "comments_on_linkedin": 102 },
+  "sync_quota": {
+    "unlimited": false,
+    "limit": 10,
+    "remaining": 9,
+    "reset_at": "2026-10-13T10:00:00Z",
+    "low_quota": false,
+    "exhausted": false
+  }
+}
+```
+
+Each sync uses one unit of your daily comment sync quota (shared with the
+web app). A sync already running or started a few minutes ago returns
+`already_running` (HTTP 200) and costs nothing. Quota reached:
+`comment_sync_quota_reached` (429). Wait about a minute, then read the
+comments. MCP: `sync_received_comments`.
+
+## POST /api/v1/ai-score
+
+Run MagicPost's Post AI score (the editor's "Score IA") on plain text, or on
+one of your posts.
+
+**Body**: `text`, or `post_id` (its current text is scored unless `text` is
+also given).
+
+```json
+{ "text": "Your post text..." }
+```
+
+**Response**
+
+```json
+{
+  "success": true,
+  "post_id": null,
+  "grade": "B",
+  "score": 42,
+  "fluency_score": 80,
+  "language": "English",
+  "flagged": [
+    {
+      "excerpt": "Here's why it matters",
+      "category": "here_is",
+      "severity": "strong",
+      "explanation": "...",
+      "source": "device"
+    }
+  ],
+  "scanner_version": "..."
+}
+```
+
+`grade` goes from `A` (doesn't sound AI) to `E`. `strong` passages lower the
+grade, `weak` ones are informative. There is no suggested rewrite. Each scan
+uses your daily AI score quota (`ai_score_quota_reached`, 429, with
+`reset_at`); a post whose text did not change since its last scan is free.
+Limited to 5 requests per minute. MCP: `score_post`.
+
+## POST /api/v1/ideas
+
+Save an idea to your MagicPost Idea notebook, at the top of the backlog
+column.
+
+```json
+{ "idea": "Why we stopped cold outreach", "notes": "Optional longer context" }
+```
+
+- `idea` (required): up to 2000 characters.
+- `notes`: up to 20000 characters.
+
+**Response** (HTTP 201)
+
+```json
+{
+  "success": true,
+  "idea_id": "uuid",
+  "idea": "Why we stopped cold outreach",
+  "notes": "Optional longer context",
+  "created_at": "2026-10-12T10:00:00Z"
+}
+```
+
+MCP: `add_idea_to_notebook`.
