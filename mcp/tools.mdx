@@ -234,6 +234,15 @@ To resolve a `linkedin_share_urn` into a MagicPost UUID:
 Posts published outside MagicPost are not in this table and cannot
 be fetched with this tool.
 
+Besides the raw `post` record, the response carries:
+- `publication`: `{state, scheduled_at, published_at, linkedin_url,
+  error}`. `state` is one of draft, scheduled, publishing, retrying,
+  published, failed. On failed or retrying, `error` gives `message`
+  and, when LinkedIn refused the post, `linkedin_status` (e.g. 422)
+  and `linkedin_body` (LinkedIn's raw response). Check it right after
+  a scheduled time to fix and republish without waiting for the email.
+- `scheduled_comments`: the comments armed on the post.
+
 | Input | Type | Default | Description |
 |---|---|---|---|
 | `post_id` | `string` | — | Post Id |
