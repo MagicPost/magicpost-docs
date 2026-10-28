@@ -39,6 +39,10 @@ Some errors carry extra fields:
 | `failed_tag` | 400 | One or more `@mentions` in the post can't be tagged (LinkedIn privacy settings). |
 | `too_late` | 400 | Trying to schedule more than 6 months in the future |
 | `already_published` | 409 | Trying to cancel-schedule or republish a post that already went out |
+| `unknown_column` | 400 | `stage` is not an active Kanban column of the account (or is `scheduled` / `published`) |
+| `idea_not_found` | 404 | `idea_id` doesn't exist OR is another user's idea |
+| `not_configured` | 409 | `stage` or `idea_id` sent while the Kanban of the Posts page was never set up |
+| `stage_on_create_only` | 400 | `stage` or `idea_id` sent on an update: they are accepted when creating a post only |
 | `db_error` | 500 | Internal DB issue. Detail in our logs / Slack, not exposed in response. |
 | `unknown_error` | 500 | Anything we didn't anticipate. Tracked in Sentry on our side. |
 | `network_error` | (varies) | The MCP server couldn't reach our API. Surfaced by the MCP tool layer, not by the API itself. |

@@ -43,11 +43,17 @@ curl "https://api.magicpost.in/api/v1/posts?status=scheduled&limit=10" \
       "word_count": 152,
       "type": "Actionable",
       "category": "Education",
-      "approved": null
+      "approved": null,
+      "stage": { "id": "scheduled", "label": "Scheduled" }
     }
   ]
 }
 ```
+
+`stage` is the Kanban column the post sits in on the Posts page, only when the
+user has set up that Kanban (absent otherwise). `id` is `backlog`, `to_use`,
+`in_progress`, a custom column id (`c_…`), `reserve` (no stage), `scheduled`
+or `published`; `label` is the column's name, as renamed by the user.
 
 ## GET /api/v1/posts/&lt;post_id&gt;
 
@@ -96,7 +102,9 @@ it). `error` is set only on `failed` and `retrying`;
 refused the post (they are `null` for other errors, e.g. an expired token).
 Check it right after a scheduled time to fix and republish without waiting
 for the failure email. `scheduled_comments` lists the comments armed on the
-post (see [Comments, AI score and ideas](/api-reference/content)).
+post (see [Comments, AI score and ideas](/api-reference/content)). When the
+user has set up the Kanban of the Posts page, the response also carries
+`stage` (same shape as in the list above).
 
 ## POST /api/v1/posts
 
@@ -110,6 +118,15 @@ Create a draft post.
 
 - `content` (required) — post text. Line breaks (`\n`) are preserved verbatim
   and rendered on LinkedIn.
+- `stage` (optional) — Kanban column where the draft lands, at the top: a
+  `stage.id` from the list above, or `reserve`. Not `scheduled` nor
+  `published`. Needs the Kanban of the Posts page to be set up.
+- `idea_id` (optional) — id of one of your Notebook ideas the draft is written
+  from. The idea then counts as used. Needs the Kanban to be set up.
+
+`stage` and `idea_id` are accepted on creation only. Errors: `unknown_column`
+(400), `idea_not_found` (404), `not_configured` (409); on
+`PATCH /api/v1/posts/<post_id>` they return `stage_on_create_only` (400).
 
 <Warning>
 This REST endpoint creates text-only drafts. MCP clients that support chat file
