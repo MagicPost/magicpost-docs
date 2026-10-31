@@ -28,6 +28,26 @@ Inputs
 - guideline: optional. Extra instructions appended to the prompt.
 - signature: optional. Custom signature.
 - writing_style_urn: optional.
+- template_id + template_kind: optional, always together. The `id`
+  and `kind` of an entry returned by list_templates. The post then
+  follows that template's structure, hook and length (same as
+  "Generate from a template" in the MagicPost editor); `subject`
+  is still what the post is about. No `type` is needed.
+- template_similarity: optional, only with a template.
+    'close'     (default) → keeps the template's structure, hook
+                            style and length, rewritten freely
+    'identical'           → replicates the template's format and
+                            structure very precisely
+
+Templates
+---------
+When the user asks for a post "from a template", "with my template
+X" or "in the format of \<template>", call list_templates first (use
+`query` with words from the template's name), confirm the choice with
+the user if several match, then pass its `id` and `kind` here. Never
+paste a template's text into `guideline` instead: the template mode
+uses a dedicated prompt. template_not_found (404) → the id/kind pair
+is not visible to this account; list again.
 
 Writing style resolution
 ------------------------
@@ -74,6 +94,54 @@ Errors that need user action
 | `guideline` | `string \| null` | null | Guideline |
 | `signature` | `string \| null` | null | Signature |
 | `writing_style_urn` | `string \| null` | null | Writing Style Urn |
+| `template_id` | `string \| null` | null | Template Id |
+| `template_kind` | `string \| null` | null | Template Kind |
+| `template_similarity` | `string \| null` | null | Template Similarity |
+
+
+---
+
+## list_templates
+
+List the post templates this user can generate from: the same
+library as the template picker of the MagicPost editor.
+
+Inputs
+------
+- kind: optional filter.
+    'custom' → the user's own templates (and templates a teammate
+               shared with the organisation, with `author_name`)
+    'org'    → templates their organisation published for them
+    'built'  → the MagicPost catalogue (~90 templates)
+  Omitted: all three, the user's own first, then the organisation's,
+  then the catalogue.
+- category: optional, catalogue category ('actionable',
+  'inspirational', 'insights', 'promotional').
+- query: optional, case-insensitive text matched against the title
+  and the preview. Use it when the user names a template.
+- language: optional. Language of the catalogue templates (name or
+  code). Defaults to the user's content language. Pass the same
+  value you will pass to generate_post.
+- limit: 1-100, default 30. `total` tells how many matched.
+
+Returns
+-------
+`{success, count, total, language, templates: [...]}`. Each entry:
+`id`, `kind`, `title`, `category`, `family`, `preview` (first ~280
+characters of the template, enough to recognise its structure),
+`length_chars`, and `author_name` for a teammate's template.
+
+To generate from one: generate_post(subject=..., template_id=\<id>,
+template_kind=\<kind>). Show the user a short list (title + preview)
+when the choice is not obvious.
+
+| Input | Type | Default | Description |
+|---|---|---|---|
+| `kind` | `string \| null` | null | Kind |
+| `category` | `string \| null` | null | Category |
+| `query` | `string \| null` | null | Query |
+| `language` | `string \| null` | null | Language |
+| `limit` | `integer` | `30` | Limit |
 
 
 ---
@@ -169,9 +237,6 @@ One of these `status` values (HTTP status varies):
     and re-call this tool.
   - 'quota_exceeded' (402) — user's plan limit reached. Surface
     the hint to the user verbatim.
-  - 'trial_not_eligible' (403) — trial accounts cannot import new
-    writing styles. The user must upgrade. Generation in the user's
-    own style is still available.
   - 'invalid_url' (400) — URL doesn't resolve to a LinkedIn profile.
   - 'import_failed' (4xx) — could not fetch the profile. Verify the
     URL is correct and the profile is public.
@@ -237,7 +302,9 @@ be fetched with this tool.
 Besides the raw `post` record, the response carries:
 - `publication`: `{state, scheduled_at, published_at, linkedin_url,
   error}`. `state` is one of draft, scheduled, publishing, retrying,
-  published, failed. On failed or retrying, `error` gives `message`
+  published, failed, missed (scheduled time passed by more than 10
+  minutes without publication: it will not go out on its own,
+  reschedule it). On failed or retrying, `error` gives `message`
   and, when LinkedIn refused the post, `linkedin_status` (e.g. 422)
   and `linkedin_body` (LinkedIn's raw response). Check it right after
   a scheduled time to fix and republish without waiting for the email.
@@ -261,10 +328,16 @@ file in a code or CLI client. On success returns
 `{success: True, post_id, created: bool}` — use `post_id` (NOT `id`)
 when chaining into schedule_post or publish_post_now.
 
+To edit a post owned by an organisation member (e.g. a draft made with
+`create_member_post`), pass its `post_id` AND that `member_user_id`.
+Only org super_admins can do this; to CREATE a member's draft, use
+`create_member_post`.
+
 | Input | Type | Default | Description |
 |---|---|---|---|
 | `content` | `string` | — | Content |
 | `post_id` | `string \| null` | null | Post Id |
+| `member_user_id` | `string \| null` | null | Member User Id |
 
 
 ---
@@ -395,11 +468,16 @@ scheduled comments (do not retry). The call is not retried
 automatically: on a network error, check get_post before calling
 again, or the comment may be armed twice.
 
+For a post owned by an organisation member, pass that
+`member_user_id`: the comment is then published by the MEMBER's
+LinkedIn account. Only org super_admins can do this.
+
 | Input | Type | Default | Description |
 |---|---|---|---|
 | `post_id` | `string` | — | Post Id |
 | `text` | `string` | — | Text |
 | `minutes_after` | `integer` | `0` | Minutes After |
+| `member_user_id` | `string \| null` | null | Member User Id |
 
 
 ---
@@ -409,11 +487,14 @@ again, or the comment may be armed twice.
 Remove a comment armed with schedule_post_comment, before it is
 published on LinkedIn. A comment already published (or being
 published) cannot be removed here: `comment_already_published` (409).
+For a member-owned post, pass the same `member_user_id` (org
+super_admins only).
 
 | Input | Type | Default | Description |
 |---|---|---|---|
 | `post_id` | `string` | — | Post Id |
 | `comment_id` | `string` | — | Comment Id |
+| `member_user_id` | `string \| null` | null | Member User Id |
 
 
 ---
@@ -439,10 +520,14 @@ minute, then call this tool again.
 `synced: false` means the post is not imported yet (just published):
 retry later.
 
+For a post of an organisation member, pass that `member_user_id`
+(org super_admins only).
+
 | Input | Type | Default | Description |
 |---|---|---|---|
 | `post_id` | `string \| null` | null | Post Id |
 | `linkedin_activity_id` | `string \| null` | null | Linkedin Activity Id |
+| `member_user_id` | `string \| null` | null | Member User Id |
 
 
 ---
@@ -462,10 +547,14 @@ Returns `status: running` right away. Wait about a minute (longer for
 posts with hundreds of comments), then call list_received_comments:
 `last_sync.state` tells whether the sync is done.
 
+For a post of an organisation member, pass that `member_user_id`
+(org super_admins only): the sync uses the MEMBER's daily quota.
+
 | Input | Type | Default | Description |
 |---|---|---|---|
 | `post_id` | `string \| null` | null | Post Id |
 | `linkedin_activity_id` | `string \| null` | null | Linkedin Activity Id |
+| `member_user_id` | `string \| null` | null | Member User Id |
 
 
 ---
@@ -493,10 +582,16 @@ Each scan uses the user's daily AI score quota (a post_id whose text
 did not change since its last scan is free). On
 `ai_score_quota_reached`, do not retry before `reset_at`.
 
+To score a post owned by an organisation member, pass its `post_id`
+AND that `member_user_id` (org super_admins only): the scan uses the
+MEMBER's quota. Plain `text` needs no member_user_id: without a
+post_id, member_user_id is ignored and the scan uses your own quota.
+
 | Input | Type | Default | Description |
 |---|---|---|---|
 | `text` | `string \| null` | null | Text |
 | `post_id` | `string \| null` | null | Post Id |
+| `member_user_id` | `string \| null` | null | Member User Id |
 
 
 ---
@@ -511,6 +606,10 @@ Use this when the user asks things like:
   - "Save this idea in my MagicPost notebook"
   - "Add these 3 topics to my ideas"
 For several ideas, call the tool once per idea.
+
+This writes to the CALLER's own notebook. To add an idea to the
+notebook of an organisation member (a client of an agency, a
+teammate), use `add_member_idea_to_notebook` instead.
 
 Parameters
 ----------
@@ -575,13 +674,19 @@ posts both count). Tell the user and pick a later slot: do not retry.
 
 ## cancel_scheduled_post
 
-Cancel a scheduled post. Idempotent: returns success even if the
-post is no longer scheduled. Returns 409 if the post is already
-published (cannot un-publish).
+Cancel a scheduled post: it goes back to drafts, nothing is
+deleted. Idempotent: returns success even if the post is no longer
+scheduled. Returns 409 if the post is already published (cannot
+un-publish).
+
+For a post owned by an organisation member (e.g. scheduled with
+`schedule_member_post`), pass that `member_user_id`. Only org
+super_admins can do this.
 
 | Input | Type | Default | Description |
 |---|---|---|---|
 | `post_id` | `string` | — | Post Id |
+| `member_user_id` | `string \| null` | null | Member User Id |
 
 
 ---
@@ -719,17 +824,17 @@ Trigger a fresh pull of the user's LinkedIn posts and wait until done.
 
 Check `get_metrics_freshness` first. If `should_refresh` is false, do
 not start another refresh unless the user explicitly requires a forced
-refresh. It is a slow, expensive call: the backend scrapes LinkedIn
-synchronously and only responds once the refresh is finished, which can
-take up to a minute or two. Call it once and wait for the result — do
-NOT call it again back-to-back if it errors, as each call re-triggers
-the full scrape.
+refresh. It is a slow, expensive call: the backend scrapes LinkedIn in
+the background and this tool waits for the refresh to finish, which
+usually takes a minute or two and can take much longer for a profile
+with hundreds of posts. Call it once and wait for the result — do NOT
+call it again back-to-back if it errors, as each call re-triggers the
+full scrape.
 
-`max_wait_seconds` is only an upper bound on how long this tool waits;
-with the current backend the call returns as soon as the refresh is
-done, so the default is fine. If the result ever comes back with status
-'timeout', the refresh is still running in the background — tell the
-user to check back shortly instead of calling again.
+`max_wait_seconds` is only an upper bound on how long this tool waits.
+If the result comes back with status 'timeout', the refresh is still
+running in the background — tell the user to check back shortly
+instead of calling again.
 
 | Input | Type | Default | Description |
 |---|---|---|---|
@@ -846,9 +951,10 @@ Filters
 
 Pagination
 ----------
-- limit: up to 25 per call (default 20).
+- limit: up to 100 per call (default 20). To read a whole list,
+  use limit=100.
 - offset: 0-indexed. Use `offset` + `has_more` from the response to
-  paginate.
+  paginate, one page after the other.
 
 Returns `{items, count, limit, offset, has_more}`.
 
@@ -1151,6 +1257,40 @@ returned `post_id` and the same `member_user_id`.
 |---|---|---|---|
 | `member_user_id` | `string` | — | Member User Id |
 | `content` | `string` | — | Content |
+
+
+---
+
+## add_member_idea_to_notebook
+
+Save a post idea to the Idea notebook of a specific organisation
+member, to write later. The idea appears at the top of THAT member's
+notebook backlog, like an idea they typed in the app.
+
+Only callable by org super_admins. Get `member_user_id` from
+`list_org_members`. Use this when the user asks to add an idea to a
+client's / teammate's notebook: do NOT create a draft post instead.
+For the caller's own notebook, use `add_idea_to_notebook`. For
+several ideas, call the tool once per idea.
+
+Parameters
+----------
+- idea: the idea itself, short (a topic, an angle, a hook). Max 2000
+  characters.
+- notes: optional longer context kept with the idea (sources, angle,
+  anecdote, outline). Max 20000 characters.
+
+Returns
+-------
+`{success, idea_id, idea, notes, created_at, member_user_id}`. The
+call is not retried: on a network error, check with the user before
+calling again, or the idea may be saved twice.
+
+| Input | Type | Default | Description |
+|---|---|---|---|
+| `member_user_id` | `string` | — | Member User Id |
+| `idea` | `string` | — | Idea |
+| `notes` | `string \| null` | null | Notes |
 
 
 ---

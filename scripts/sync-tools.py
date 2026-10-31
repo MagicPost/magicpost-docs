@@ -42,7 +42,7 @@ INTRO = ROOT / "introduction.mdx"
 # never silently dropped. The order of keys is the display order.
 CATEGORIES: dict[str, list[str]] = {
     "Generation & styles": [
-        "generate_post", "list_my_writing_styles",
+        "generate_post", "list_templates", "list_my_writing_styles",
         "find_writing_style_profile", "add_writing_style_profile",
     ],
     "Posts": [
@@ -68,6 +68,7 @@ CATEGORIES: dict[str, list[str]] = {
     "Org / team": [
         "list_org_members", "get_org_metrics_summary", "list_org_member_posts",
         "get_org_member_post", "create_member_post", "schedule_member_post",
+        "add_member_idea_to_notebook",
     ],
 }
 
