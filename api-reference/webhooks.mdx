@@ -1,0 +1,191 @@
+---
+title: "Webhooks"
+description: "Get a signed POST on your own URL when one of your posts is published or fails."
+icon: "webhook"
+---
+
+A webhook tells your server (or your agent) what happened to a post, without
+polling `GET /api/v1/posts/{post_id}`. MagicPost sends a signed `POST` to your
+URL when one of **your** posts:
+
+- is published on LinkedIn: `post.published`
+- fails to publish: `post.failed`, with the LinkedIn error
+
+Webhooks cover the posts you author. Posts that an organization admin schedules
+for another member are sent to that member's webhooks, not the admin's.
+
+All endpoints below require a Personal Access Token (`Authorization: Bearer mp_…`).
+
+## POST /api/v1/webhooks
+
+Create a webhook. The signing secret is returned **exactly once**.
+
+**Body**
+
+```json
+{
+  "url": "https://hooks.example.com/magicpost",
+  "events": ["post.published", "post.failed"]
+}
+```
+
+- `url` (required): an `https://` URL on a public host
+- `events` (optional): defaults to both events
+
+**Response** (HTTP 201)
+
+```json
+{
+  "webhook": {
+    "id": "6f1c…",
+    "url_preview": "https://hooks.example.com/…post",
+    "events": ["post.published", "post.failed"],
+    "active": true,
+    "disabled_reason": null,
+    "created_at": "2026-11-11T10:00:00+00:00"
+  },
+  "secret": "whsec_…",
+  "hint": "Store this secret now: it is shown only once. …"
+}
+```
+
+Store `secret` right away: it is never shown again. If you lose it, delete the
+webhook and create a new one.
+
+Constraints:
+
+- At most **5 webhooks** per account (`endpoint_limit_reached`)
+- `invalid_url`: not HTTPS, or the host is not public
+- `invalid_events`: an event type that doesn't exist
+
+## GET /api/v1/webhooks
+
+List your webhooks. Never returns the full URL nor the secret.
+
+## DELETE /api/v1/webhooks/{id}
+
+Delete a webhook. Returns 404 `webhook_not_found` if the id isn't one of yours.
+
+## POST /api/v1/webhooks/{id}/test
+
+Send a signed `webhook.test` event to the URL right away and get the result:
+
+```json
+{ "delivered": true, "status_code": 200 }
+```
+
+At most **10 tests per hour** (`test_limit_reached`, HTTP 429). Tests are not
+retried and don't count toward deactivation.
+
+## What you receive
+
+```http
+POST /magicpost HTTP/1.1
+Content-Type: application/json
+MagicPost-Event-Id: 0b8e…
+MagicPost-Event-Type: post.failed
+MagicPost-Signature: t=1762855200,v1=5f2c…
+```
+
+```json
+{
+  "id": "0b8e…",
+  "type": "post.failed",
+  "created_at": "2026-11-11T10:00:05Z",
+  "post": { "id": "c41d…" },
+  "publication": {
+    "state": "failed",
+    "scheduled_at": "2026-11-11T10:00:00+00:00",
+    "published_at": null,
+    "linkedin_url": null,
+    "error": {
+      "message": "Response error, code 422: {\"message\":\"…\"}",
+      "linkedin_status": 422,
+      "linkedin_body": "{\"message\":\"…\"}"
+    }
+  },
+  "error_family": "media_processing",
+  "needs_reconnect": false
+}
+```
+
+- `publication` has exactly the same shape as in `GET /api/v1/posts/{post_id}`.
+- `error_family` is a stable code (`daily_limit`, `media_processing`,
+  `service_incident`, …). It is `null` for `post.published`.
+- `needs_reconnect` is `true` when the LinkedIn account must be reconnected in
+  MagicPost. It is `null` for `post.published`.
+- The body never contains the text of your post.
+
+For `post.published`, `publication.state` is `published`, and `linkedin_url`
+and `published_at` are filled.
+
+## Verify the signature
+
+`MagicPost-Signature` is `t=<unix timestamp>,v1=<hex>`, where `v1` is the
+HMAC-SHA256 of `"<t>.<raw request body>"` with your secret. Always compute it
+on the **raw bytes** you received, before parsing the JSON, compare in constant
+time, and reject requests whose timestamp is more than **5 minutes** old.
+
+<CodeGroup>
+
+```python Python
+import hashlib, hmac, time
+
+def verify(raw_body: bytes, header: str, secret: str, tolerance: int = 300) -> bool:
+    parts = dict(item.split("=", 1) for item in header.split(","))
+    timestamp, signature = int(parts["t"]), parts["v1"]
+    if abs(time.time() - timestamp) > tolerance:
+        return False
+    expected = hmac.new(secret.encode(), f"{timestamp}.".encode() + raw_body,
+                        hashlib.sha256).hexdigest()
+    return hmac.compare_digest(expected, signature)
+```
+
+```javascript Node
+import crypto from "node:crypto";
+
+export function verify(rawBody, header, secret, tolerance = 300) {
+  const parts = Object.fromEntries(header.split(",").map((p) => p.split("=", 2)));
+  const timestamp = Number(parts.t);
+  if (Math.abs(Date.now() / 1000 - timestamp) > tolerance) return false;
+  const expected = crypto
+    .createHmac("sha256", secret)
+    .update(`${timestamp}.`)
+    .update(rawBody)
+    .digest("hex");
+  const a = Buffer.from(expected);
+  const b = Buffer.from(parts.v1 ?? "");
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
+}
+```
+
+</CodeGroup>
+
+## Retries and deactivation
+
+- Answer with a **2xx within 10 seconds**. Anything else (3xx included:
+  redirects are not followed) counts as a failure.
+- A failed delivery is retried after 1 min, 5 min, 30 min, 2 h and 6 h, then
+  abandoned.
+- Delivery is **at least once**: if a delivery attempt is interrupted on our
+  side, it is retried, so the same event can arrive twice.
+- After **10 abandoned deliveries in a row**, the webhook is deactivated
+  (`active: false`) and we email you. Fix your endpoint, delete the webhook and
+  create a new one.
+
+## If an agent republishes on its own
+
+<Warning>
+**Deduplicate on `MagicPost-Event-Id`.** The same event can reach you twice
+(for example when your server answered after the timeout). Store the ids you
+already handled.
+</Warning>
+
+<Warning>
+**Don't retry a `daily_limit` failure in a loop.** It means the LinkedIn
+profile reached its posts-per-24-hours limit. Pick a later slot instead (the
+`retry_at` field of the scheduling error tells you when).
+</Warning>
+
+For `needs_reconnect: true`, republishing won't help until the account is
+reconnected to LinkedIn in MagicPost.
