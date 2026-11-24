@@ -77,10 +77,10 @@ In any conversation, ask things like:
   have other posts that day before going through)
 
 <Note>
-  Media attachment depends on the MCP client exposing the uploaded file as a
-  temporary file reference. If the client does not offer the file to the
-  `attach_media_to_post` tool, create the draft in chat and add the media from
-  the MagicPost web app.
+  To add media, ask for it in the chat. If your client cannot pass a file to
+  the tool (claude.ai), the assistant gives you a private link where you drop
+  it. Visuals and carousels it designs are attached directly. See
+  [Media, visuals and carousels](/mcp/media-attachments).
 </Note>
 
 If Claude says it doesn't have access to your data, the MCP server probably
@@ -93,8 +93,8 @@ didn't load — check the config file syntax and that `mcp-remote` is reachable
   <Card title="MCP tools" icon="wrench" href="/mcp/tools">
     Full catalog of what the LLM can do.
   </Card>
-  <Card title="Attach media" icon="paperclip" href="/mcp/media-attachments">
-    Supported formats, limits, and the complete workflow.
+  <Card title="Media, visuals and carousels" icon="paperclip" href="/mcp/media-attachments">
+    Images, videos, PDFs, drop links, and carousels designed by the assistant.
   </Card>
   <Card title="Setup Claude Code" icon="terminal" href="/mcp/setup-claude-code">
     Connect with OAuth and attach files from your local workspace.

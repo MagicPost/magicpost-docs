@@ -193,7 +193,12 @@ Returns
 
 Each result has:
   urn, full_name, headline, profile_url, followers, valid_posts,
-  ready_to_use.
+  ready_to_use, similarity.
+
+`similarity` is null when the name contains the query. When nobody
+does, the search falls back to names spelled closely (a typo such as
+"jasminc alic" for "Jasmin Alić") and `similarity` gives how close
+(0 to 1): tell the user which person you found before using them.
 
 After picking a candidate, call add_writing_style_profile(profile_url)
 to attach it to the user's account. If the candidate's `ready_to_use`
@@ -266,6 +271,11 @@ Default is 'scheduled' because the most common LLM-driven question is
 posts explicitly, pass the matching status — do NOT rely on the
 default.
 
+Each row carries `media_type` (`image`, `video`, `document` or
+`text`) and `thumbnail_url`: the post's first image, the video's
+preview frame or the document's cover, as a URL you can embed. It is
+null for text posts and when no preview image exists.
+
 | Input | Type | Default | Description |
 |---|---|---|---|
 | `status` | `string` | `'scheduled'` | Status |
@@ -278,6 +288,10 @@ default.
 ## get_post
 
 Fetch the full record for a single MagicPost owned by the user.
+
+Besides the raw media list (`file_post`), the record carries
+`media_type` and `thumbnail_url`, with the same meaning as in
+`list_my_posts`.
 
 OWN POSTS ONLY. This tool returns `error_type='post_not_found'` (404)
 for any post you don't own — including posts of your org teammates,
@@ -328,6 +342,14 @@ file in a code or CLI client. On success returns
 `{success: True, post_id, created: bool}` — use `post_id` (NOT `id`)
 when chaining into schedule_post or publish_post_now.
 
+@mentions: write `@[Name](urn:li:person:<id>)` (person) or
+`@[Name](urn:li:organization:<id>)` (company page), copied unchanged
+from the `mention` field of search_mentions or list_recent_mentions.
+A plain "@Name" is published as text, without a tag. When the text
+holds a mention that will not become a tag, the response carries a
+`mentions` report (`untagged_at_names`, `malformed_urns`,
+`will_not_tag`): fix the text before scheduling.
+
 To edit a post owned by an organisation member (e.g. a draft made with
 `create_member_post`), pass its `post_id` AND that `member_user_id`.
 Only org super_admins can do this; to CREATE a member's draft, use
@@ -344,31 +366,48 @@ Only org super_admins can do this; to CREATE a member's draft, use
 
 ## attach_media_to_post
 
-Attach one chat-provided image, video, or PDF to a draft.
+Attach one image, video, or PDF to a draft, from a chat file or a
+public HTTPS link.
 
 Call this after create_or_update_post and before schedule_post or
 publish_post_now. The post must be an unscheduled, unpublished draft,
-must not contain a poll. Set replace_existing=True to replace ALL
-existing attachments with this file after validation succeeds.
-The post ID and scheduled comments are preserved. alt_text is limited
-to 1000 characters; the separate title is limited to 400 characters.
+must not contain a poll. The post ID and scheduled comments are
+preserved. alt_text is limited to 1000 characters; the separate title
+(shown on a PDF document post) to 400 characters.
+
+Pass exactly one source:
+- `media_file`: a temporary file reference supplied by the chat host.
+  Never invent or reuse its `download_url`: it is consumed during this
+  call and copied into permanent MagicPost storage.
+- `media_url`: a public https:// link to the file itself (an image
+  hosted on the web, a file the user shared by link). Never a page
+  that merely displays the image.
+If the chat host offers no file to this tool, do not guess a URL or a
+file reference. claude.ai passes neither chat attachments nor files you
+created in your sandbox to tools. For something you create yourself (a
+carousel, a chart, a visual), use attach_html_slides instead. For a file
+the user has, call create_media_drop_link and give the user the link.
+
+Several images: call once per image with append=True (up to 9 images,
+in call order; LinkedIn shows them as a multi-image post). A video or
+a PDF (carousel) must be the only media. Set replace_existing=True
+instead to replace ALL existing attachments with this file. To remove
+one attachment, use remove_post_media.
 
 For a draft created by `create_member_post`, pass the same
 `member_user_id` here, then use `schedule_member_post`. Only an org
 super_admin can attach media to a member-owned draft.
 
-`media_file` is a temporary file reference supplied by the chat host.
-Never invent or reuse its `download_url`: it is consumed during this
-tool call and copied into permanent MagicPost storage.
-
 | Input | Type | Default | Description |
 |---|---|---|---|
 | `post_id` | `string` | — | Post Id |
-| `media_file` | `object` | — | Media File |
+| `media_file` | `object` | null | Media File |
 | `alt_text` | `string \| null` | null | Alt Text |
 | `member_user_id` | `string \| null` | null | Member User Id |
 | `replace_existing` | `boolean` | `false` | Replace Existing |
 | `title` | `string \| null` | null | Title |
+| `append` | `boolean` | `false` | Append |
+| `media_url` | `string \| null` | null | Media Url |
 
 
 ---
@@ -377,15 +416,24 @@ tool call and copied into permanent MagicPost storage.
 
 Prepare a short-lived upload for a local image, video, or PDF.
 
-Use this when the MCP client can upload local bytes over HTTPS, such as
-Claude Code. This remote server cannot read a local file path. Upload
-the bytes according to `upload_request`, then call
-complete_post_media_upload with the returned `upload_id`.
+Use this when your environment can send the file's bytes over HTTPS
+(Claude Code, a desktop client with network access). This remote
+server cannot read a local file path. Upload the bytes according to
+`upload_request`, then call complete_post_media_upload with the
+returned `upload_id`.
+
+In claude.ai, the code sandbox usually cannot reach the upload host
+(its outbound proxy refuses it). If the upload fails on the network
+(proxy refusal, 403 on CONNECT, DNS or connection error), do not
+retry and do not fall back to attach_media_to_post: follow
+`if_upload_blocked` in the response.
 
 For a member-owned draft, pass the `member_user_id` returned by
 `list_org_members` and pass it again when completing the upload.
 To replace all existing attachments, pass replace_existing=True here
 AND when completing. Existing media stays until completion succeeds.
+To add an image next to the post's images (up to 9), pass append=True
+here AND when completing; upload images one after the other.
 
 | Input | Type | Default | Description |
 |---|---|---|---|
@@ -394,6 +442,7 @@ AND when completing. Existing media stays until completion succeeds.
 | `mime_type` | `string \| null` | null | Mime Type |
 | `member_user_id` | `string \| null` | null | Member User Id |
 | `replace_existing` | `boolean` | `false` | Replace Existing |
+| `append` | `boolean` | `false` | Append |
 
 
 ---
@@ -406,7 +455,9 @@ Call this after prepare_post_media_upload and the HTTPS upload. For a
 member-owned draft, pass the same `member_user_id` used to prepare it.
 Re-calling a successfully completed upload is safe.
 Use replace_existing=True to replace all attachments, keeping the post
-and its comments. alt_text: max 1000 characters; title: max 400.
+and its comments, or append=True (same value as when preparing) to
+add an image after the existing ones. alt_text: max 1000 characters;
+title: max 400.
 
 | Input | Type | Default | Description |
 |---|---|---|---|
@@ -416,6 +467,7 @@ and its comments. alt_text: max 1000 characters; title: max 400.
 | `member_user_id` | `string \| null` | null | Member User Id |
 | `replace_existing` | `boolean` | `false` | Replace Existing |
 | `title` | `string \| null` | null | Title |
+| `append` | `boolean` | `false` | Append |
 
 
 ---
@@ -437,6 +489,374 @@ replace_existing=True for replacement. Published posts cannot change.
 | `alt_text` | `string \| null` | null | Alt Text |
 | `title` | `string \| null` | null | Title |
 | `member_user_id` | `string \| null` | null | Member User Id |
+
+
+---
+
+## remove_post_media
+
+Remove one attachment from a draft (its `url` from get_post's
+file_post; never invent it), or all of them with remove_all=True.
+
+The text, the post ID and its scheduled comments stay. Cancel any
+schedule first; published posts cannot change. To swap a file, prefer
+attach_media_to_post with replace_existing=True. For a member-owned
+draft, pass that `member_user_id` (org super_admins only).
+
+| Input | Type | Default | Description |
+|---|---|---|---|
+| `post_id` | `string` | — | Post Id |
+| `media_url` | `string \| null` | null | Media Url |
+| `remove_all` | `boolean` | `false` | Remove All |
+| `member_user_id` | `string \| null` | null | Member User Id |
+
+
+---
+
+## create_media_drop_link
+
+Create a temporary link where the user drops images, a video or a
+PDF from their browser to attach them to a draft, without logging in.
+
+Use it whenever the chat cannot hand the file to attach_media_to_post
+or your environment cannot upload it: claude.ai, an image the user only
+has on their computer or phone. Something you create yourself (carousel,
+chart, visual) goes through attach_html_slides instead, with no link.
+Creating the link frees an upload left pending on this draft by
+prepare_post_media_upload. Give the user the `url` with
+`message_for_user`, then wait for them to say it is done and call
+get_post to check `file_post`.
+
+- mode "add" (default): files are added after the draft's images, up
+  to 9 images in total; a video or a PDF must be alone on a post.
+- mode "replace": the first file dropped replaces all existing media.
+The link works for 30 minutes and only for this draft (unscheduled,
+unpublished, without a poll). Your own drafts only.
+
+| Input | Type | Default | Description |
+|---|---|---|---|
+| `post_id` | `string` | — | Post Id |
+| `mode` | `string` | `'add'` | Mode |
+
+
+---
+
+## attach_html_slides
+
+Design a visual or a carousel yourself in HTML/CSS: MagicPost renders it
+and attaches it to a draft. One slide becomes an image, 2 to 20 slides
+become a PDF carousel (LinkedIn document post). This is the way to attach
+something you create (carousel, chart, quote card, infographic): no file
+transfer, so it works in claude.ai where your sandbox files never reach
+tools.
+
+Each slide is one complete HTML document sized exactly 1080x1350 px
+(format "portrait") or 1080x1080 px ("square"): set html and body to that
+size, overflow hidden. Rendered by Chromium with scripts and network
+blocked: no JavaScript, no external images or CSS. Allowed: inline CSS,
+inline SVG (charts, icons, shapes), small images as data: URIs, Google
+Fonts (fonts.googleapis.com). Keep text large (body 32px or more) and
+inside a safe margin.
+
+Each slide is checked for text that overflows, overlaps or is cut. If any
+is found, nothing is attached: you get `issues` per slide, fix those
+slides and call again with ALL slides (or pass
+ignore_layout_warnings=True). `warnings` (near the edge, low contrast)
+never block. `title` is shown on a PDF carousel post.
+
+replace_existing=True swaps the draft's current media. append=True adds a
+single image after the draft's images (up to 9); a carousel must be the
+only media. Your own drafts only.
+
+| Input | Type | Default | Description |
+|---|---|---|---|
+| `post_id` | `string` | — | Post Id |
+| `slides` | `array` | — | Slides |
+| `format` | `string` | `'portrait'` | Format |
+| `title` | `string \| null` | null | Title |
+| `alt_text` | `string \| null` | null | Alt Text |
+| `replace_existing` | `boolean` | `false` | Replace Existing |
+| `append` | `boolean` | `false` | Append |
+| `ignore_layout_warnings` | `boolean` | `false` | Ignore Layout Warnings |
+
+
+---
+
+## delete_post
+
+Delete one of the user's posts (`post_id` from list_my_posts,
+get_calendar or get_post).
+
+- A draft or a scheduled post is removed from MagicPost; a scheduled
+  post will not go out. To keep the post and only stop it from
+  going out, use cancel_scheduled_post instead.
+- A post already PUBLISHED (from MagicPost or directly on LinkedIn)
+  is deleted from LinkedIn too, and that cannot be undone. The first call answers
+  `published_post_confirm_required` without deleting anything: show
+  the post to the user, get an explicit yes, then call again with
+  `confirm_delete_on_linkedin=true`. Never set it without that yes.
+
+If LinkedIn answers `token_expired`, ask the user to reconnect
+LinkedIn in MagicPost, then retry.
+
+Returns
+-------
+`{success, post_id, deleted_from_linkedin, deleted_from_magicpost}`.
+
+| Input | Type | Default | Description |
+|---|---|---|---|
+| `post_id` | `string` | — | Post Id |
+| `confirm_delete_on_linkedin` | `boolean` | `false` | Confirm Delete On Linkedin |
+
+
+---
+
+## duplicate_post
+
+Copy one of the user's posts (draft, scheduled or published) into a
+new draft, like "Reuse this post" in the app: same text, same poll
+(votes reset), same link preview and, by default, the same media. The new draft is
+linked to the original in the post's reuse history.
+
+Use this when the user asks things like:
+  - "Repost my best post from last month"
+  - "Make a copy of this draft so I can try another version"
+
+The draft is not scheduled: edit it with create_or_update_post, then
+schedule it with schedule_post.
+
+Returns
+-------
+`{success, post_id (the new draft), source_post_id, has_poll,
+media_copied}`.
+
+| Input | Type | Default | Description |
+|---|---|---|---|
+| `post_id` | `string` | — | Post Id |
+| `include_media` | `boolean` | `true` | Include Media |
+
+
+---
+
+## list_media_library
+
+List the media saved in the user's MagicPost media library: files
+uploaded in the app, and visuals or carousels made with MagicPost
+(source "ai").
+
+Use this when the user asks things like:
+  - "Use my photo from last week's post"
+  - "Which visuals do I have in my Client X folder?"
+  - "Show my favorite images"
+
+`folder_id` (from get_media_library_overview) lists one folder only.
+`sort="size"` puts the heaviest files first (to free storage).
+
+Returns
+-------
+`{assets: [{asset_id, name, asset_type, source, url, thumbnail_url,
+size_bytes, is_favorite, is_profile_photo, client_visible,
+usage_count, folder_id, created_at}]}`. Show `thumbnail_url` (or
+`url`) to the user to pick one, then call
+`attach_library_media_to_post` with its `asset_id`, or
+`manage_media_asset` to change it.
+
+| Input | Type | Default | Description |
+|---|---|---|---|
+| `query` | `string \| null` | null | Query |
+| `asset_type` | `string \| null` | null | Asset Type |
+| `source` | `string \| null` | null | Source |
+| `favorite` | `boolean \| null` | null | Favorite |
+| `folder_id` | `string \| null` | null | Folder Id |
+| `sort` | `string` | `'recent'` | Sort |
+| `limit` | `integer` | `20` | Limit |
+| `offset` | `integer` | `0` | Offset |
+
+
+---
+
+## get_media_library_overview
+
+Folders, counts and storage of the user's media library, plus its
+setting for new media shared with the client.
+
+Use this when the user asks things like:
+  - "Which folders do I have in my media library?"
+  - "How many videos do I have?" / "How much storage am I using?"
+  - "Are new media visible to my client by default?"
+
+Returns
+-------
+`{counts: {all, image, video, document, gif, audio, favorite},
+used_bytes, storage_quota_bytes, folders: [{folder_id, name,
+asset_count, created_at}], settings: {default_client_visible}}`.
+`storage_quota_bytes` is the 5 GB shown in the app; no upload is
+refused at that mark. Use a `folder_id` with list_media_library or
+manage_media_asset, and manage_media_folder to change folders.
+
+_No inputs._
+
+
+---
+
+## manage_media_folder
+
+Create, rename or delete a folder of the user's media library.
+
+- `create`: `name` (80 characters max). Returns `{folder}`; move media
+  into it with manage_media_asset (action="update", folder_id).
+- `rename`: `folder_id` (from get_media_library_overview) and `name`.
+- `delete`: `folder_id`. By default the media stay in the library,
+  outside any folder. With `delete_media=true` the media are deleted
+  with the folder: the first call answers
+  `folder_media_delete_confirm_required` with `asset_count`; tell the
+  user how many media will go, and only after their explicit yes call
+  again with `confirm_delete_media=true`.
+
+| Input | Type | Default | Description |
+|---|---|---|---|
+| `action` | `string` | — | Action |
+| `folder_id` | `string \| null` | null | Folder Id |
+| `name` | `string \| null` | null | Name |
+| `delete_media` | `boolean` | `false` | Delete Media |
+| `confirm_delete_media` | `boolean` | `false` | Confirm Delete Media |
+
+
+---
+
+## manage_media_asset
+
+Add, change, delete or share media of the user's media library.
+
+Actions:
+- `add`: save a file in the library from `media_url` (a public
+  https:// link to the file itself) or `media_file` (a file reference
+  supplied by the chat host). Optional `name`, `folder_id`,
+  `is_profile_photo` (images only). A file already in the library is
+  not stored twice: the answer then has `reused: true` and the
+  existing media. Images, GIFs, videos and PDFs, 100 MB max.
+- `prepare_upload` / `complete_upload` / `abort_upload`: for a client
+  that uploads local bytes over HTTPS (Claude Code). `prepare_upload`
+  takes `file_name` (also docx, pptx, xlsx, mp3, wav, m4a), optional
+  `mime_type`, `content_hash` ("sha256:\<hex>" of the whole file: a
+  duplicate is answered at once, no upload), `name`, `folder_id`,
+  `is_profile_photo`; send the bytes as `upload_request` says, then
+  `complete_upload` with `upload_id`. On a network refusal, follow
+  `if_upload_blocked`.
+- `update`: `asset_id` with any of `name`, `folder_id` (move) or
+  `remove_from_folder=true`, `is_favorite`, `is_profile_photo` (an
+  image only), `client_visible` (shown in the client's space). Pass
+  `asset_ids` instead to move, favorite or share up to 100 media at
+  once (not rename nor profile photo).
+- `delete`: `asset_id`. Posts already using the file keep it. Ask the
+  user before deleting.
+- `send_to_client`: org admins of an agency. Copies `asset_ids` (50
+  max) from the user's library into the library of `member_user_id`
+  (from list_org_members), shared with that client.
+- `set_default_client_visible`: `default_client_visible` true or
+  false: whether media added later are visible to the client by
+  default (the account's setting on the Media page).
+
+To put a library media in a post, use attach_library_media_to_post.
+
+| Input | Type | Default | Description |
+|---|---|---|---|
+| `action` | `string` | — | Action |
+| `asset_id` | `string \| null` | null | Asset Id |
+| `asset_ids` | `array \| null` | null | Asset Ids |
+| `media_url` | `string \| null` | null | Media Url |
+| `media_file` | `object` | null | Media File |
+| `file_name` | `string \| null` | null | File Name |
+| `mime_type` | `string \| null` | null | Mime Type |
+| `content_hash` | `string \| null` | null | Content Hash |
+| `upload_id` | `string \| null` | null | Upload Id |
+| `name` | `string \| null` | null | Name |
+| `folder_id` | `string \| null` | null | Folder Id |
+| `remove_from_folder` | `boolean` | `false` | Remove From Folder |
+| `is_favorite` | `boolean \| null` | null | Is Favorite |
+| `is_profile_photo` | `boolean \| null` | null | Is Profile Photo |
+| `client_visible` | `boolean \| null` | null | Client Visible |
+| `member_user_id` | `string \| null` | null | Member User Id |
+| `default_client_visible` | `boolean \| null` | null | Default Client Visible |
+
+
+---
+
+## attach_library_media_to_post
+
+Attach a media of the user's library (`asset_id` from
+list_media_library) to one of their drafts (`post_id`), without
+uploading the file again.
+
+Same rules as attach_media_to_post:
+- the post must be a draft: cancel the schedule first if it is
+  scheduled; a post with a poll cannot have media;
+- `append=true` adds an image next to the post's images (9 at most;
+  a video or a PDF must be alone);
+- `replace_existing=true` swaps the post's media for this one;
+- with neither, the post must have no media yet.
+- `alt_text`: optional description of the image for accessibility.
+
+Returns
+-------
+`{success, post_id, media, media_count, asset_id}`.
+
+| Input | Type | Default | Description |
+|---|---|---|---|
+| `post_id` | `string` | — | Post Id |
+| `asset_id` | `string` | — | Asset Id |
+| `alt_text` | `string \| null` | null | Alt Text |
+| `replace_existing` | `boolean` | `false` | Replace Existing |
+| `append` | `boolean` | `false` | Append |
+
+
+---
+
+## search_mentions
+
+Find the LinkedIn person or company page to @mention in a post or a
+comment, by name or by LinkedIn URL.
+
+- query: a name ("Jane Doe", "Acme") or a profile/page URL
+  (https://www.linkedin.com/in/jane-doe, https://www.linkedin.com/company/acme).
+  A URL is the most reliable way to pick the right person; a name
+  search can return homonyms. Name searches cost nothing; URLs are
+  limited to 30 per hour.
+
+Each result has `name`, `headline`, `type` (person or company),
+`tagged_before` (the user already tagged this profile: usually the
+right one among homonyms), `can_tag` and `mention`. If several
+results could match and none was tagged before, ask the user which
+one (show the headlines) instead of guessing.
+
+Paste the `mention` value into the post text with create_or_update_post
+(or into a comment). Do not tag a result with `can_tag: false`: write
+the name as plain text and tell the user why (`warning`).
+
+To tag the people the user usually tags (their team), call
+list_recent_mentions first: no search needed.
+
+| Input | Type | Default | Description |
+|---|---|---|---|
+| `query` | `string` | — | Query |
+
+
+---
+
+## list_recent_mentions
+
+List the people and company pages the user has already tagged in
+MagicPost, the most recently added first: typically their team, their
+company page and regular partners.
+
+Each item has the same shape as search_mentions results, with a
+ready-to-paste `mention`. Use it when the user says "tag the team" or
+names someone they tag often; fall back to search_mentions for anyone
+missing.
+
+| Input | Type | Default | Description |
+|---|---|---|---|
+| `limit` | `integer` | `30` | Limit |
 
 
 ---
@@ -559,6 +979,113 @@ For a post of an organisation member, pass that `member_user_id`
 
 ---
 
+## reply_to_comment
+
+Reply, from the user's LinkedIn account, to a comment someone left
+on one of the user's OWN published posts.
+
+- comment_id: the `comment_id` of a comment returned by
+  list_received_comments (never invent it).
+- post_id / linkedin_activity_id: the same post reference used with
+  list_received_comments (exactly one).
+- text: max 1250 characters. To @mention someone, paste a `mention`
+  from search_mentions.
+
+Show the reply to the user and get their go first: it is public.
+
+The reply is QUEUED, not sent instantly: MagicPost spaces comments and
+replies like a person would (at most 100 per 24 hours app included, 20
+per hour, 75 s to 3 min apart) so LinkedIn does not flag the account.
+The response says when it goes out: relay `message_for_user` to the
+user right away, in their language. Replying to 10 comments is fine:
+call once per comment, they are spread over the next minutes.
+list_engagement_queue shows what is pending, sent or failed.
+
+| Input | Type | Default | Description |
+|---|---|---|---|
+| `comment_id` | `string` | — | Comment Id |
+| `text` | `string` | — | Text |
+| `post_id` | `string \| null` | null | Post Id |
+| `linkedin_activity_id` | `string \| null` | null | Linkedin Activity Id |
+
+
+---
+
+## engage_with_post
+
+React to and/or comment on a LinkedIn post (typically someone
+else's) from the user's account.
+
+- post_url: the post link (linkedin.com/posts/..., /feed/update/urn:li:activity:...,
+  or a lnkd.in short link), OR post_urn (urn:li:activity:\<digits>).
+- comment: the comment text, max 1250 characters. To @mention someone,
+  paste a `mention` from search_mentions.
+- reaction_type: LIKE, PRAISE (celebrate), EMPATHY (love), INTEREST
+  (insightful), APPRECIATION (support), ENTERTAINMENT (funny).
+Pass both to like AND comment: send them in ONE call, they go out as a
+single visit (the reaction a few seconds before the comment).
+
+Show the comment to the user and get their go first: it is public.
+Requires the Engagement feature of the user's plan
+(`engagement_forbidden` otherwise: do not retry).
+
+Nothing is sent instantly: actions are QUEUED and spaced like a person
+would engage, so LinkedIn does not flag the account. Limits: 100
+comments (replies included) and 100 reactions per 24 hours, actions
+made in the MagicPost app included; 20 comments and 30 reactions per
+hour; 75 s to 3 min between comments. Engaging with 20 posts is fine:
+call once per post right away, the queue spreads them out.
+Always relay `message_for_user` to the user right away, in their
+language: it says when each action goes out. `capacity` tells what is
+left: warn the user before queuing more than that. An action that
+could not go out within 12 hours (daily limit reached) is NOT queued
+and the response says so (`engagement_not_queued`): tell the user, do
+not retry.
+
+| Input | Type | Default | Description |
+|---|---|---|---|
+| `post_url` | `string \| null` | null | Post Url |
+| `post_urn` | `string \| null` | null | Post Urn |
+| `comment` | `string \| null` | null | Comment |
+| `reaction_type` | `string \| null` | null | Reaction Type |
+
+
+---
+
+## list_engagement_queue
+
+List the reactions, comments and replies queued by
+engage_with_post and reply_to_comment: pending ones first (with
+`starts_in_seconds`), then those of the last 7 days (sent with their
+`comment_url`, failed with their `error`).
+
+`capacity` tells, per type, how many were done in the last 24 hours
+(app included), how many are queued and the next free slot. Use it
+when the user asks "what's left today?" or before queuing a batch.
+Report failed items to the user: they will not be retried.
+
+| Input | Type | Default | Description |
+|---|---|---|---|
+| `status` | `string \| null` | null | Status |
+
+
+---
+
+## cancel_queued_engagement
+
+Cancel an action of the engagement queue before it goes out (its
+`id` from engage_with_post, reply_to_comment or list_engagement_queue).
+An action already sent cannot be cancelled here
+(`queued_action_not_cancellable`). Cancelling a comment does not
+cancel the reaction queued with it: cancel both if needed.
+
+| Input | Type | Default | Description |
+|---|---|---|---|
+| `queued_id` | `string` | — | Queued Id |
+
+
+---
+
 ## score_post
 
 Run MagicPost's Post AI score on a LinkedIn post: the same scan as
@@ -599,8 +1126,8 @@ post_id, member_user_id is ignored and the scan uses your own quota.
 ## add_idea_to_notebook
 
 Save a post idea to the user's MagicPost Idea notebook, to write
-later. The idea appears at the top of the notebook's backlog column,
-like an idea typed in the app.
+later. The idea appears at the top of the notebook, like an idea typed
+in the app.
 
 Use this when the user asks things like:
   - "Save this idea in my MagicPost notebook"
@@ -614,9 +1141,18 @@ teammate), use `add_member_idea_to_notebook` instead.
 Parameters
 ----------
 - idea: the idea itself, short (a topic, an angle, a hook). Max 2000
-  characters.
+  characters. May be empty only if `notes` is given.
 - notes: optional longer context kept with the idea (sources, angle,
   personal anecdote, outline). Max 20000 characters.
+- column_id: optional board column to create it in (ids from the
+  `columns` of list_notebook_ideas; "used" files it as already used).
+- category / post_type: optional, from the `categories` and
+  `post_types` listed by list_notebook_ideas.
+- label_ids: optional labels, ids from the `labels` of
+  list_notebook_ideas.
+
+On an agency client's account, the idea is signed and shared with the
+client exactly as when it is typed in the app.
 
 This does NOT write a post. To draft a post now, use generate_post or
 create_or_update_post.
@@ -631,6 +1167,402 @@ or the idea may be saved twice.
 |---|---|---|---|
 | `idea` | `string` | — | Idea |
 | `notes` | `string \| null` | null | Notes |
+| `column_id` | `string \| null` | null | Column Id |
+| `category` | `string \| null` | null | Category |
+| `post_type` | `string \| null` | null | Post Type |
+| `label_ids` | `array \| null` | null | Label Ids |
+
+
+---
+
+## list_notebook_ideas
+
+List the ideas saved in the user's MagicPost Idea notebook, in the
+order of the notebook board.
+
+Use this when the user asks things like:
+  - "What ideas do I have in my notebook?"
+  - "Find my idea about pricing"
+  - "Which ideas haven't I used yet?" (status="unused")
+  - "Show my starred ideas" (is_favourite=true)
+
+Parameters
+----------
+- scope: "notebook" (default) = the ideas of the Notebook page (typed
+  by the user or added from their share link). "all" = the Pinned
+  ideas page: also the ideas pinned from the generator or the chat.
+- status: "unused" (still to write) or "used" (already turned into a
+  post). Omit for both.
+- query: optional text search in the idea title.
+- is_favourite: only starred (true) or non starred (false) ideas.
+- category: only the ideas of one category (see `categories`).
+- limit / offset: pagination (max 50 per page).
+
+Returns
+-------
+`{ideas: [{idea_id, idea, notes, status, column_id, is_favourite,
+source, category, post_type, elements, label_ids, labels,
+attachments: [{id, name, mime, size_bytes, kind}], client_visible,
+author, listed_for_client, created_at, updated_at}], total, has_more,
+columns, labels, post_types, categories}`.
+`columns` lists the board columns `{id, label}` (column "used" = the
+idea was already used); `labels` the account's labels `{id, name,
+color}`. `client_visible` / `listed_for_client` only matter on a
+notebook shared with an agency client or for approval.
+
+| Input | Type | Default | Description |
+|---|---|---|---|
+| `scope` | `string` | `'notebook'` | Scope |
+| `status` | `string \| null` | null | Status |
+| `query` | `string \| null` | null | Query |
+| `is_favourite` | `boolean \| null` | null | Is Favourite |
+| `category` | `string \| null` | null | Category |
+| `limit` | `integer` | `20` | Limit |
+| `offset` | `integer` | `0` | Offset |
+
+
+---
+
+## get_notebook_idea
+
+Read one idea of the user's MagicPost Idea notebook in full: notes,
+elements, labels, attached files, client visibility. Get `idea_id`
+from `list_notebook_ideas`.
+
+To read an attached file, also pass its `attachment_id` (from the
+idea's `attachments`):
+- attachment_content="text" (default): the text extracted from a
+  text, Markdown, Word or PDF file. Images and audio have no text.
+- attachment_content="download_url": a private link to the file,
+  valid one hour. Share it only with the user.
+
+Returns
+-------
+The idea `{success, idea_id, idea, notes, ..., attachments}`, plus
+`attachment: {attachment_id, text}` or `{attachment_id, url,
+expires_in_seconds}` when `attachment_id` is passed.
+
+| Input | Type | Default | Description |
+|---|---|---|---|
+| `idea_id` | `string` | — | Idea Id |
+| `attachment_id` | `string \| null` | null | Attachment Id |
+| `attachment_content` | `string` | `'text'` | Attachment Content |
+
+
+---
+
+## manage_notebook_idea
+
+Change, copy or delete one idea of the user's MagicPost Idea
+notebook. Get `idea_id` from `list_notebook_ideas`.
+
+Actions
+-------
+- "update": only the fields you pass change.
+    - `idea` (title), `notes` (or `clear_notes=true`);
+    - `column_id`: move to a board column (ids from the `columns` of
+      list_notebook_ideas); `move_to_top=true`: first of its column;
+    - `is_favourite`: star or unstar;
+    - `category`, `post_type` (lists in list_notebook_ideas), or
+      `clear_category_and_type=true`;
+    - `elements`: replace the idea's supporting points (max 10);
+    - `label_ids`: the idea's labels, replacing the current ones
+      (`[]` removes them all; ids from the `labels` of
+      list_notebook_ideas);
+    - `client_visible`: show or hide the idea in the notebook the
+      account shares with its agency client (or for approval).
+- "mark_used": mark the idea as used, as the app does once a post is
+  written from it. Typical flow: read the idea, write the post with
+  generate_post or create_or_update_post, then call this.
+- "mark_unused": put a used idea back on the board.
+- "duplicate": copy title, notes, elements, category, type and labels
+  into a new idea at the top of the notebook (files are not copied).
+- "generate_elements": let MagicPost write 3 to 5 supporting points
+  for the idea from its title, notes and attached files (one AI
+  generation), and save them on the idea, replacing the current ones.
+- "delete": delete the idea and its attached files. This cannot be
+  undone: confirm with the user first.
+
+Returns
+-------
+The idea after the change, the new idea for "duplicate", `{elements}`
+for "generate_elements", or `{success, idea_id, deleted}`.
+
+| Input | Type | Default | Description |
+|---|---|---|---|
+| `action` | `string` | — | Action |
+| `idea_id` | `string` | — | Idea Id |
+| `idea` | `string \| null` | null | Idea |
+| `notes` | `string \| null` | null | Notes |
+| `clear_notes` | `boolean` | `false` | Clear Notes |
+| `column_id` | `string \| null` | null | Column Id |
+| `move_to_top` | `boolean` | `false` | Move To Top |
+| `is_favourite` | `boolean \| null` | null | Is Favourite |
+| `category` | `string \| null` | null | Category |
+| `post_type` | `string \| null` | null | Post Type |
+| `clear_category_and_type` | `boolean` | `false` | Clear Category And Type |
+| `elements` | `array \| null` | null | Elements |
+| `label_ids` | `array \| null` | null | Label Ids |
+| `client_visible` | `boolean \| null` | null | Client Visible |
+
+
+---
+
+## manage_idea_attachment
+
+Attach a file to an idea of the user's notebook, or remove one. An
+idea holds up to 5 files of 50 MB at most: PDF, Word (.docx), text
+(.txt, .md), images (.jpg, .png, .webp, .heic) and audio (.m4a,
+.mp3, .wav). The text of documents feeds "generate_elements".
+
+Actions
+-------
+- "add_from_url": MagicPost downloads the file from a public https
+  link (`file_url`) and attaches it. Pass `file_name` with its
+  extension when the link has none.
+- "prepare_upload" then "complete_upload": for a client that can send
+  local bytes over HTTPS (Claude Code, Desktop). Pass `file_name` and
+  `size_bytes`, send the file as described in `upload` (PUT to `url`
+  with the given headers, within 15 minutes), then call
+  "complete_upload" with the returned `attachment_id`. If the upload
+  is blocked by your network, do not retry: use "add_from_url" or ask
+  the user to add the file in the app.
+- "delete": remove the file `attachment_id` (or cancel a prepared
+  upload). Confirm with the user first.
+
+Returns
+-------
+`{success, attachment: {id, name, mime, size_bytes, kind}}`, the
+upload ticket for "prepare_upload", or `{deleted}`.
+
+| Input | Type | Default | Description |
+|---|---|---|---|
+| `action` | `string` | — | Action |
+| `idea_id` | `string` | — | Idea Id |
+| `attachment_id` | `string \| null` | null | Attachment Id |
+| `file_url` | `string \| null` | null | File Url |
+| `file_name` | `string \| null` | null | File Name |
+| `size_bytes` | `integer \| null` | null | Size Bytes |
+
+
+---
+
+## manage_notebook_columns
+
+Read or change the columns of the user's notebook board, and the
+notebook setting "new ideas visible to the client".
+
+Actions
+-------
+- "get": the columns `{id, label}` and the setting.
+- "add": a new column named `label`, placed before "used".
+- "rename": give column `column_id` the name `label`.
+- "remove": delete column `column_id`; its ideas move to the first
+  column. "backlog" and "used" cannot be removed. Confirm first.
+- "reorder": `column_ids` = every column id in the new order ("used"
+  always stays last).
+- "set_default_client_visible": `enabled` = whether new ideas written
+  in the notebook are shown to the agency client (or for approval) by
+  default.
+
+A board has 2 to 8 columns; labels are at most 40 characters.
+
+Returns
+-------
+`{success, columns, notebook_default_client_visible,
+ideas_moved_from_columns}`.
+
+| Input | Type | Default | Description |
+|---|---|---|---|
+| `action` | `string` | — | Action |
+| `column_id` | `string \| null` | null | Column Id |
+| `label` | `string \| null` | null | Label |
+| `column_ids` | `array \| null` | null | Column Ids |
+| `enabled` | `boolean \| null` | null | Enabled |
+
+
+---
+
+## get_idea_generator
+
+Read the user's MagicPost idea generator (My ideas > Generator).
+
+Views
+-----
+- "overview" (default): the generator's sources (themes, personas,
+  URLs, files, each with its `source_id`), its settings, the batches
+  already generated (one per source, with `latest_generation_id`), the
+  remaining generation quota and the accepted `post_types`.
+- "batch": every version of the ideas generated for one source. Pass
+  `generation_style` and `source_id` exactly as listed in the
+  overview's `batches`. Each idea has `idea_id`, `subject`,
+  `category`, `post_type`, `elements`, `pinned` and `pinned_idea_id`
+  (its id in the notebook when pinned).
+- "suggestions": topic ideas ("theme") or audience ideas ("persona")
+  already suggested from the user's LinkedIn profile. Pass `kind`.
+  `has_context=false` means none were generated yet: use
+  manage_idea_sources(action="suggest").
+
+Typical flow: overview, then add a source with manage_idea_sources if
+needed, then generate_ideas, then manage_generated_idea to develop or
+pin the ideas the user likes.
+
+| Input | Type | Default | Description |
+|---|---|---|---|
+| `view` | `string` | `'overview'` | View |
+| `generation_style` | `string \| null` | null | Generation Style |
+| `source_id` | `string \| null` | null | Source Id |
+| `kind` | `string \| null` | null | Kind |
+
+
+---
+
+## manage_idea_sources
+
+Add, edit or delete the sources the idea generator draws from, or
+suggest new ones from the user's LinkedIn profile.
+
+Actions
+-------
+- "add_theme": a topic the user writes about (`theme`, short).
+- "add_persona": an audience (`name`, optional `description`). At most
+  30 personas.
+- "add_url": an article or web page (`url`). Its content is read and
+  summarised now: allow up to two minutes. Refused when the page
+  cannot be read.
+- "add_file": a document (PDF, DOCX, TXT, MD, CSV) or an image (JPG,
+  PNG, GIF, WEBP), up to 20 MB. Pass `file_url` (a public https link
+  to the file itself) or `text` (content you already have, such as a
+  transcript, saved as `file_name`, default notes.txt). The same file
+  sent twice is not read again. Allow up to two minutes.
+- "update": rename a theme (`kind="theme"`, `source_id`, `theme`) or
+  change a persona (`kind="persona"`, `source_id`, `name` and/or
+  `description`). URLs and files cannot be edited.
+- "delete": remove a source (`kind`, `source_id`). This also deletes
+  every batch of ideas generated from it (ideas already pinned to the
+  notebook stay). Confirm with the user first.
+- "suggest": generate 4 new suggestions from the LinkedIn profile and
+  recent posts (`kind="theme"` or `"persona"`). Nothing is added: show
+  them, then add the ones the user picks with add_theme or
+  add_persona. Needs LinkedIn connected.
+
+Returns the source with its `source_id` (pass it to generate_ideas),
+`{deleted: true}`, or `{suggestions}`.
+
+| Input | Type | Default | Description |
+|---|---|---|---|
+| `action` | `string` | — | Action |
+| `kind` | `string \| null` | null | Kind |
+| `source_id` | `string \| null` | null | Source Id |
+| `theme` | `string \| null` | null | Theme |
+| `name` | `string \| null` | null | Name |
+| `description` | `string \| null` | null | Description |
+| `url` | `string \| null` | null | Url |
+| `file_url` | `string \| null` | null | File Url |
+| `text` | `string \| null` | null | Text |
+| `file_name` | `string \| null` | null | File Name |
+
+
+---
+
+## generate_ideas
+
+Generate a batch of 6 LinkedIn post ideas with the MagicPost idea
+generator, exactly like the Generate button of the app. Each call
+adds a new version to the source's batch and uses one generation of
+the user's idea quota (shared with the app). Allow up to two minutes.
+Do not retry automatically after a timeout: check the batch first
+(get_idea_generator view="batch").
+
+Parameters
+----------
+- generation_style: what the ideas are drawn from.
+  "theme", "url", "persona", "file": a source of the generator, pass
+  its `source_id` (get_idea_generator, or manage_idea_sources to add
+  one). "posts": the user's own posts, pass `post_refs` (MagicPost
+  post ids from list_my_posts, or LinkedIn share URNs). "creator_post":
+  posts by other creators, pass `post_refs` (the `id` of
+  search_inspiration_posts results). "from_idea": an idea of the
+  notebook, pass its `idea_id` (list_notebook_ideas) as `source_id`.
+- post_type: the kind of post: Actionable (advice, how-to),
+  Aspirational (story, vision), Introspective (lesson, opinion),
+  Promotional (offer, lead generation).
+- instruction: optional angle for "url" and "file" only (max 500
+  characters), for example "focus on the pricing part".
+
+Returns the new version: `{generation_id, version_number, ideas:
+[{idea_id, subject, category, post_type, elements}], generation_quota}`.
+Next steps: manage_generated_idea to develop (generate_elements), edit
+or pin an idea to the notebook; generate_post to write the post.
+
+Errors: `idea_generation_forbidden` (403, plan without the idea
+generator), `idea_generation_rate_limit` (429, quota used up until
+`reset_at`).
+
+| Input | Type | Default | Description |
+|---|---|---|---|
+| `generation_style` | `string` | — | Generation Style |
+| `post_type` | `string` | — | Post Type |
+| `source_id` | `string \| null` | null | Source Id |
+| `post_refs` | `array \| null` | null | Post Refs |
+| `instruction` | `string \| null` | null | Instruction |
+
+
+---
+
+## manage_generated_idea
+
+Act on one idea of a generated batch. Get `generation_id` and
+`idea_id` from generate_ideas or get_idea_generator(view="batch").
+
+Actions
+-------
+- "edit": change the idea's `subject` and/or its `elements` (list of
+  short supporting points; an empty list clears them).
+- "generate_elements": write 3 to 5 supporting points (facts, angles,
+  examples) for the idea, saved on it. Allow up to two minutes.
+- "pin": save the idea to the user's notebook, linked to its batch,
+  with its category and elements, like the pin button of the app.
+  Returns `pinned_idea_id`, the idea's id in the notebook.
+When the idea is pinned, edit and generate_elements also update its
+notebook copy. To unpin it or mark it as used, call
+manage_notebook_idea with `pinned_idea_id` (delete or mark_used).
+To write the post, call generate_post with the subject and elements.
+
+| Input | Type | Default | Description |
+|---|---|---|---|
+| `action` | `string` | — | Action |
+| `generation_id` | `string` | — | Generation Id |
+| `idea_id` | `string` | — | Idea Id |
+| `subject` | `string \| null` | null | Subject |
+| `elements` | `array \| null` | null | Elements |
+
+
+---
+
+## update_idea_generator_settings
+
+Change how the idea generator works, like its settings panel in
+the app. Only the fields you pass change; they apply to the next
+generations (app and assistant alike).
+
+- use_ai_context: use what MagicPost knows of the user's profile
+  (expertise, audience, offer).
+- use_previous_posts: draw on the user's past posts to avoid repeats.
+- use_categories: spread ideas across post categories.
+- language: language of the ideas, as a language name (for example
+  "English", "Français", "Español"). `reset_language=true` goes back
+  to the user's post language.
+
+Returns the settings after the change.
+
+| Input | Type | Default | Description |
+|---|---|---|---|
+| `use_ai_context` | `boolean \| null` | null | Use Ai Context |
+| `use_previous_posts` | `boolean \| null` | null | Use Previous Posts |
+| `use_categories` | `boolean \| null` | null | Use Categories |
+| `language` | `string \| null` | null | Language |
+| `reset_language` | `boolean` | `false` | Reset Language |
 
 
 ---
@@ -708,6 +1640,139 @@ posts per 24 hours: tell the user, do not retry.
 
 ---
 
+## get_calendar
+
+Show the user's MagicPost content calendar over a period, as the
+app's calendar shows it: the posts scheduled to go out, the posts
+already published on LinkedIn (with MagicPost or directly on
+LinkedIn), and the ideas placed on calendar days (planned topics with
+no post written yet).
+
+Use this when the user asks things like:
+  - "What's planned for next week?"
+  - "Do I have gaps in my calendar this month?"
+  - "When is my next post going out?"
+  - "What did I post last month?"
+
+Parameters
+----------
+- date_from / date_to: the period, both included, as YYYY-MM-DD
+  (UTC days). At most 93 days.
+- member_user_id: an organisation member's calendar (id from
+  list_org_members). Only org admins, within the members they manage.
+
+Returns
+-------
+`{scheduled_posts: [{id, post_content, schedule_date,
+schedule_timezone, media_type, approved, publishing_failed, ...}],
+published_posts: [{post_id, published_at, linkedin_post_url,
+text_preview, media_type, num_impressions, num_likes, num_comments,
+num_reposts, published_with_magicpost, is_boosted}], calendar_ideas:
+[{calendar_idea_id, content, date, notebook_idea_id, client_visible,
+placed_by_org_admin_id}], timezone}`.
+`approved: false` means the post waits for the account owner's
+validation; `publishing_failed: true` means its last publication
+attempt failed (get_post for details). `client_visible: false` marks an
+idea kept internal to the agency (hidden from the client's shared
+calendar).
+To act on a scheduled post use its `id` with schedule_post,
+cancel_scheduled_post or get_post; on a published post use `post_id`
+with get_post, duplicate_post or delete_post; on a calendar idea use
+`manage_calendar_idea` (same `member_user_id`). For a member's post,
+pass the same `member_user_id` to those tools when they take it.
+
+| Input | Type | Default | Description |
+|---|---|---|---|
+| `date_from` | `string` | — | Date From |
+| `date_to` | `string` | — | Date To |
+| `member_user_id` | `string \| null` | null | Member User Id |
+
+
+---
+
+## manage_calendar_idea
+
+Plan a topic on a calendar day without writing the post yet, as
+the user does by dropping an idea on the MagicPost calendar. Nothing is
+published or scheduled on LinkedIn.
+
+Actions
+-------
+- "place": put an idea on a day. Pass `date` (ISO 8601 date-time,
+  e.g. "2026-12-03T09:00:00+01:00") and either `content` (a new
+  topic) or `notebook_idea_id` (an idea of the notebook, from
+  list_notebook_ideas: it keeps a single place, placing it again
+  moves it). A used idea cannot be placed.
+- "update": change the `content`, the `date` and/or `client_visible`
+  of a calendar idea (`calendar_idea_id`, from get_calendar).
+- "remove": take the idea off the calendar (`calendar_idea_id`). A
+  notebook idea stays in the notebook.
+
+Options
+-------
+- client_visible: for an agency working on a client's account, false
+  keeps the idea internal (hidden from the calendar shared with the
+  client), true shows it. Omitted: a new idea placed by the agency is
+  internal, any other idea is visible, as in the app.
+- member_user_id: act on an organisation member's calendar (id from
+  list_org_members). Only org admins, within the members they manage.
+  A new idea placed this way is signed by the admin, as when the admin
+  inserts an idea from the team calendar.
+
+To turn a calendar idea into a post, write the post (generate_post or
+create_or_update_post), schedule it (schedule_post), then remove the
+calendar idea.
+
+| Input | Type | Default | Description |
+|---|---|---|---|
+| `action` | `string` | — | Action |
+| `calendar_idea_id` | `string \| null` | null | Calendar Idea Id |
+| `content` | `string \| null` | null | Content |
+| `date` | `string \| null` | null | Date |
+| `notebook_idea_id` | `string \| null` | null | Notebook Idea Id |
+| `client_visible` | `boolean \| null` | null | Client Visible |
+| `member_user_id` | `string \| null` | null | Member User Id |
+
+
+---
+
+## get_recommended_posting_times
+
+Recommended days and hours to publish on LinkedIn, the same data as
+the heatmap of the MagicPost scheduler: median engagement of millions
+of LinkedIn posts by day and hour, scored 0-100.
+
+Use this before choosing a slot with schedule_post, or when the user
+asks "When should I post?".
+
+Parameters
+----------
+- country: the audience's country in English (e.g. "France",
+  "United States", "United Kingdom") or its code (FR, US, GB).
+  Omitted: the user's own country, as in the app. "global": data of
+  all countries.
+- include_grid: true to also get the 168 day x hour cells. Default:
+  only the 10 best slots.
+- include_countries: true to also get `available_countries`, the
+  countries with their own data (the app's country picker). Always
+  returned when the requested country has no data.
+
+Returns
+-------
+`{top_slots: [{day, hour, score}], country_requested, country_used,
+posts_analysed, available_countries?}`. Hours are the local time of
+`country_used`; `country_used: null` means global data (the requested
+country has no data of its own).
+
+| Input | Type | Default | Description |
+|---|---|---|---|
+| `country` | `string \| null` | null | Country |
+| `include_grid` | `boolean` | `false` | Include Grid |
+| `include_countries` | `boolean` | `false` | Include Countries |
+
+
+---
+
 ## list_linkedin_post_metrics
 
 List per-post LinkedIn metrics for an inclusive date range.
@@ -738,6 +1803,12 @@ When the connected identity is a company page, LinkedIn does not measure
 `followers_gained` at all: they come back
 null and are listed in `advanced_metrics_unavailable_for_profile_type`.
 Say the metric does not exist for pages rather than reporting zero.
+
+Each post also carries `media_type` (`image`, `video`, `document`,
+`article`, `poll` or `text`) and `thumbnail_url`: the post's image, the
+video's preview frame, the document's first page or the article image,
+as a URL you can embed in a report. It is null for text and poll posts,
+and when no image was stored for the post.
 
 | Input | Type | Default | Description |
 |---|---|---|---|
@@ -778,6 +1849,12 @@ These are profile-level daily gains, not followers attributed to a
 specific post.
 Use `period` to scope the window. For most questions like "how did I
 perform recently?" use '30d'.
+
+Each `top_posts` entry carries `media_type` (`image`, `video`,
+`document`, `article`, `poll` or `text`) and `thumbnail_url`: the post's
+image, the video's preview frame, the document's first page or the
+article image, as a URL you can embed in a report. It is null for text
+and poll posts, and when no image was stored for the post.
 
 Identifiers — IMPORTANT:
 `top_posts[].linkedin_share_urn` is the LinkedIn share URN, NOT the
@@ -995,7 +2072,340 @@ Needed to get the `icp_id` values used by `list_leads` (scoping) and
 the user wants to detect; leads are scored A/B/C against it (a
 D-scored profile is not a lead: free, and never listed).
 
+Each ICP carries its definition (`title`, `prompt`), its filters
+(`default_filters`), its keywords (`heuristic_rules`: strong, weak,
+anti) and `digest_status` ('computing' while its scoring profile is
+being built, 'ready', or 'failed'). `archived_at` set = archived.
+Change one with `update_icp`, create one with `create_icp`.
+
 _No inputs._
+
+
+---
+
+## suggest_icps
+
+Suggest 3 to 4 ICPs (Ideal Customer Profiles) for the user, written
+from their LinkedIn profile and recent posts. Use it when the user has
+no ICP yet (`list_icps` is empty) or asks who they could target.
+
+Suggestions are generated in the background (about 5 to 15 seconds)
+and reused for 7 days. Returns `{status, suggestions}`:
+- status 'generating': call this tool again in about 10 seconds.
+- status 'ready': `suggestions` is a list of `{title, description}`.
+  An empty list means the profile has too little content to suggest
+  anything: help the user describe their target instead.
+- status 'error': the generation failed; help the user describe
+  their target instead.
+
+Nothing is saved: show the suggestions, let the user pick or adjust
+one, then call `create_icp` with its title and description.
+
+_No inputs._
+
+
+---
+
+## create_icp
+
+Create an ICP (Ideal Customer Profile): the kind of prospect the
+user wants to find. Leads are scored A/B/C against it, and
+`detect_leads` targets every active ICP by default.
+
+Get the user's agreement on the title, description AND filters before
+calling: each call creates a new ICP (call `list_icps` first to avoid
+a duplicate), and the number of ICPs per account is capped. Ask about
+the target countries: most ICPs filter on them, and without a country
+filter the ICP matches the whole world.
+
+Definition
+- title: short segment name, 3 words at most (e.g. "SaaS founders").
+- description: 3 to 4 concrete sentences describing ONLY the target:
+  role, company type and context, their problem or need, what they
+  are looking for. It is used as is to score every lead, so it must
+  not talk about the user or their offer.
+- example_urls / negative_example_urls: optional LinkedIn profile URLs
+  of people who fit / who look close but must NOT be leads.
+
+Filters (all optional, omitted = no filter)
+- countries / excluded_countries: English LinkedIn country names
+  ("United States", "United Kingdom", "France", "Germany"). A country
+  filter is strict: a lead known to live elsewhere is dropped.
+- industries / excluded_industries: LinkedIn industry labels
+  ("Software Development", "IT Services and IT Consulting",
+  "Marketing Services", "Business Consulting and Services").
+- employees / excluded_employees: company size buckets.
+- cities / excluded_cities: free text city names.
+- gender: 'all' (default), 'f' or 'm'.
+- profile_flags: profiles must have ALL listed flags.
+- followers_min / followers_max: LinkedIn follower bounds.
+A value the app does not know is refused with `error_type:
+'invalid_filter_values'`, `invalid_values` and the full
+`allowed_values`: fix the values from that list, never drop the
+filter silently.
+
+Keywords (strong, weak, to exclude) are generated automatically from
+the definition; adjust them afterwards with `update_icp`.
+
+Organisation ICP (admin of a Team organisation): for_org=true creates
+it at the organisation level, turned on for the creator and for
+member_ids (ids from `list_org_members`) or all_members=true. Members
+at their ICP cap come back in `skipped`. The response is then
+`{icp, activated, skipped}`. An existing ICP goes to the organisation
+with `manage_icp` action 'share_to_org'.
+
+Returns the created ICP (with its `id`). Its scoring profile and
+keywords are prepared in the background for a minute or two; it is
+listed by `list_icps` right away. Errors: `icp_limit_reached` (409:
+relay the hint, do not retry), `invalid_input` (400, e.g. an invalid
+profile URL).
+
+| Input | Type | Default | Description |
+|---|---|---|---|
+| `title` | `string` | — | Title |
+| `description` | `string` | — | Description |
+| `example_urls` | `array \| null` | null | Example Urls |
+| `negative_example_urls` | `array \| null` | null | Negative Example Urls |
+| `countries` | `array \| null` | null | Countries |
+| `excluded_countries` | `array \| null` | null | Excluded Countries |
+| `industries` | `array \| null` | null | Industries |
+| `excluded_industries` | `array \| null` | null | Excluded Industries |
+| `employees` | `array \| null` | null | Employees |
+| `excluded_employees` | `array \| null` | null | Excluded Employees |
+| `cities` | `array \| null` | null | Cities |
+| `excluded_cities` | `array \| null` | null | Excluded Cities |
+| `gender` | `string \| null` | null | Gender |
+| `profile_flags` | `array \| null` | null | Profile Flags |
+| `followers_min` | `integer \| null` | null | Followers Min |
+| `followers_max` | `integer \| null` | null | Followers Max |
+| `for_org` | `boolean` | `false` | For Org |
+| `member_ids` | `array \| null` | null | Member Ids |
+| `all_members` | `boolean` | `false` | All Members |
+
+
+---
+
+## update_icp
+
+Change one of the user's ICPs: its definition, filters or keywords.
+Get the user's agreement on the change first. Read the ICP with
+`list_icps` (its `default_filters` and `heuristic_rules`) before
+editing a list.
+
+Only the parameters you pass change; everything else is kept. A list
+you pass REPLACES that list (send the full list, existing entries
+included); [] clears it.
+
+- title, description, example_urls, negative_example_urls: same rules
+  as `create_icp`. Changing the description or the examples rebuilds
+  the scoring profile (a minute or two) and marks the previous scores
+  of this ICP as outdated.
+- Filters: same parameters and allowed values as `create_icp`.
+  followers_min=0 removes the minimum, followers_max=0 removes the
+  maximum.
+- strong_keywords / weak_keywords: words or phrases found in a lead's
+  headline, job, about or company description that signal a fit
+  (strong) or a likely fit (weak). anti_keywords: words that rule a
+  lead out. Changing keywords or filters re-sorts the existing
+  prospects of this ICP in the background, without AI cost.
+- regenerate_keywords=true: rewrites the strong and weak keywords
+  from the ICP's current scoring profile (anti_keywords are kept),
+  like the "regenerate" button of the app. Use it after changing the
+  description, once `list_icps` shows digest_status 'ready': call it
+  alone, or with filters, title or anti_keywords, never with a new
+  description, examples, strong_keywords or weak_keywords. Refused
+  with `icp_not_ready` (409) while the profile is being rebuilt.
+
+- color: the ICP's tag color in the app.
+
+An admin of the organisation can change its organisation ICPs even
+when they do not use them.
+
+Returns the updated ICP, plus `heuristic_warnings` when the new
+keywords contradict the ICP's own examples (show them to the user).
+Errors: `icp_archived` (409, relay the hint), `icp_not_ready` (409,
+wait and retry), `invalid_filter_values` (400, fix from
+`allowed_values`).
+
+| Input | Type | Default | Description |
+|---|---|---|---|
+| `icp_id` | `string` | — | Icp Id |
+| `title` | `string \| null` | null | Title |
+| `description` | `string \| null` | null | Description |
+| `example_urls` | `array \| null` | null | Example Urls |
+| `negative_example_urls` | `array \| null` | null | Negative Example Urls |
+| `countries` | `array \| null` | null | Countries |
+| `excluded_countries` | `array \| null` | null | Excluded Countries |
+| `industries` | `array \| null` | null | Industries |
+| `excluded_industries` | `array \| null` | null | Excluded Industries |
+| `employees` | `array \| null` | null | Employees |
+| `excluded_employees` | `array \| null` | null | Excluded Employees |
+| `cities` | `array \| null` | null | Cities |
+| `excluded_cities` | `array \| null` | null | Excluded Cities |
+| `gender` | `string \| null` | null | Gender |
+| `profile_flags` | `array \| null` | null | Profile Flags |
+| `followers_min` | `integer \| null` | null | Followers Min |
+| `followers_max` | `integer \| null` | null | Followers Max |
+| `strong_keywords` | `array \| null` | null | Strong Keywords |
+| `weak_keywords` | `array \| null` | null | Weak Keywords |
+| `anti_keywords` | `array \| null` | null | Anti Keywords |
+| `regenerate_keywords` | `boolean` | `false` | Regenerate Keywords |
+| `color` | `string \| null` | null | Color |
+
+
+---
+
+## get_icp
+
+One ICP in full: definition, filters, keywords, digest_status,
+sharing state, `example_profiles` (name and headline of each example
+URL) and `auto_engagement` (whether its A/B/C leads feed an
+engagement list).
+
+Pass check_strong_keywords / check_weak_keywords / check_anti_keywords
+to test keywords BEFORE saving them: `keyword_check.heuristic_warnings`
+lists the contradictions with the ICP's own examples (e.g. an
+anti-keyword that would rule out an example profile). Nothing is
+saved; save with `update_icp`.
+
+| Input | Type | Default | Description |
+|---|---|---|---|
+| `icp_id` | `string` | — | Icp Id |
+| `check_strong_keywords` | `array \| null` | null | Check Strong Keywords |
+| `check_weak_keywords` | `array \| null` | null | Check Weak Keywords |
+| `check_anti_keywords` | `array \| null` | null | Check Anti Keywords |
+
+
+---
+
+## list_org_icps
+
+The ICPs shared at the organisation level (Team organisations).
+
+- Admin of the organisation: `view: 'admin'`, the whole catalogue with,
+  for each ICP, which members use it, plus `members_total`. Manage it
+  with `manage_icp` (actions 'set_members', 'unshare_from_org') and
+  create one with `create_icp(for_org=true)`.
+- Member: `view: 'member'`, the shared ICPs they can turn on for
+  themselves with `manage_icp` action 'activate'.
+An agency or a user without organisation gets an empty list: in an
+agency each client account keeps its own ICPs.
+
+_No inputs._
+
+
+---
+
+## manage_icp
+
+One action on one ICP. Get the user's agreement first.
+
+- 'archive' / 'unarchive': an archived ICP is skipped by lead
+  detection and scoring, its leads are kept. On an organisation ICP it
+  only archives it for the user.
+- 'share_to_org': turns the ICP into an organisation ICP (Team
+  organisations), so other members can use it. Without member_ids, it
+  is only offered to them (`list_org_icps`, view 'member'). An admin
+  can also turn it on for members right away: member_ids (ids from
+  `list_org_members`) or all_members=true; an admin can do this with a
+  member's own ICP too. Members at their ICP cap are listed in
+  `skipped`.
+- 'unshare_from_org': back to a personal ICP of its creator.
+- 'activate' / 'deactivate': turn an organisation ICP on or off for
+  the user (counts toward their ICP cap while on).
+- 'set_members' (admin): the exact list of members who use this
+  organisation ICP; members left out are removed (never the creator).
+  member_ids=[] keeps only the creator, all_members=true adds everyone.
+  Returns `activated`, `removed`, `skipped`.
+- 'rebuild_scoring_profile': recompute the scoring profile, e.g. when
+  digest_status is 'failed'. Takes a minute or two.
+- 'move': display position among the user's ICPs, `position` 0 = first.
+- 'enable_auto_engagement': leads scored at the `fit_levels` (e.g.
+  ["A", "B"]) are added to a dedicated engagement list, now and from
+  then on. 'disable_auto_engagement' stops it and keeps the list.
+
+Errors: `not_org_admin`, `not_team_org`, `icp_limit_reached`,
+`icp_archived`: relay the hint, do not retry.
+
+| Input | Type | Default | Description |
+|---|---|---|---|
+| `icp_id` | `string` | — | Icp Id |
+| `action` | `string` | — | Action |
+| `member_ids` | `array \| null` | null | Member Ids |
+| `all_members` | `boolean` | `false` | All Members |
+| `position` | `integer \| null` | null | Position |
+| `fit_levels` | `array \| null` | null | Fit Levels |
+
+
+---
+
+## score_icp_leads
+
+Run the user's existing prospects through an ICP.
+
+- mode 'prequalify' (free, instant): keyword pass with the ICP's
+  keywords and filters. target 'unevaluated' (default, prospects never
+  sorted for this ICP) or 'all' (sort everyone again).
+- mode 'score' (AI, CONSUMES LEAD CREDITS: 1 per prospect scored A, B
+  or C, D is free): target 'unscored' (default), 'prequalified' (only
+  those that passed the keyword pass, the cheapest useful choice),
+  'not_prequalified', or 'all' (re-scores everyone, costs again).
+  First call (confirm=true) returns a warning with the remaining
+  credits and starts nothing: tell the user, then call again with
+  confirm=false. Refused with `icp_not_ready` while the scoring
+  profile is being built.
+- prospect_ids: only these leads (ids from `list_leads`); replaces
+  target.
+
+Scoring runs in the background: read the results with
+`list_leads(icp_id=...)`.
+
+| Input | Type | Default | Description |
+|---|---|---|---|
+| `icp_id` | `string` | — | Icp Id |
+| `mode` | `string` | — | Mode |
+| `target` | `string \| null` | null | Target |
+| `prospect_ids` | `array \| null` | null | Prospect Ids |
+| `confirm` | `boolean` | `true` | Confirm |
+
+
+---
+
+## manage_icp_leads
+
+Add leads to an ICP by hand (they are kept in it whatever their
+score, and count as a fit for this ICP), or remove them from it.
+prospect_ids come from `list_leads`. Returns `created` or `removed`.
+
+| Input | Type | Default | Description |
+|---|---|---|---|
+| `icp_id` | `string` | — | Icp Id |
+| `action` | `string` | — | Action |
+| `prospect_ids` | `array` | — | Prospect Ids |
+
+
+---
+
+## preview_icp_audience
+
+A random sample of LinkedIn profiles matching some ICP filters,
+like the calibration step of the app's ICP form: use it to check that
+the filters describe the right people before `create_icp` or
+`update_icp`. Same filter values as `create_icp` (exclusions are not
+available here). limit: 1 to 50. Industry labels containing a comma
+cannot be previewed and come back in `ignored_industries`.
+
+| Input | Type | Default | Description |
+|---|---|---|---|
+| `countries` | `array \| null` | null | Countries |
+| `industries` | `array \| null` | null | Industries |
+| `employees` | `array \| null` | null | Employees |
+| `cities` | `array \| null` | null | Cities |
+| `gender` | `string \| null` | null | Gender |
+| `profile_flags` | `array \| null` | null | Profile Flags |
+| `followers_min` | `integer \| null` | null | Followers Min |
+| `followers_max` | `integer \| null` | null | Followers Max |
+| `limit` | `integer` | `12` | Limit |
 
 
 ---
@@ -1074,6 +2484,10 @@ Two-step confirmation flow:
   false` and `queued: 0` (`already_synced` in results[]). Tell the
   user nothing was launched in that case — do not claim a detection
   started.
+- One detection at a time per account: while one runs on another
+  post, the call returns `error_type: 'detection_in_progress'` (409).
+  Do not retry right away: poll `get_detection_status` until
+  `all_terminal` is true, then launch the next post.
 - `results[]` can MIX queued and rejected ICPs (e.g. `queued: 2`
   with one `already_synced` entry). Report both to the user: which
   ICPs were launched and which were skipped, and why.
@@ -1106,6 +2520,60 @@ Only the provided fields are modified. Returns the updated lead.
 | `tags` | `array \| null` | null | Tags |
 | `comment` | `string \| null` | null | Comment |
 | `is_favorite` | `boolean \| null` | null | Is Favorite |
+
+
+---
+
+## list_org_leads
+
+List the leads of the whole team, like the "All" view of the
+organisation's Leads page: one item per person, with every team
+member who holds that lead.
+
+Only for admins of a Team organisation. Anyone else gets
+`error_type: 'org_admin_required'` (not an org admin) or
+`'team_org_required'` (agency organisation: leads stay per client
+account). Members without access to Leads contribute nothing.
+
+Each item: `key` (the person's identity across members), `profile`
+(name, headline, company, LinkedIn URL...), `holders` (one per member
+who has this lead: `user_id`, `member_name`, `prospect_id`,
+`contact_status`, `tags`, `comment`, `is_favorite`,
+`best_qualification`, `memberships`, `next_action`) and
+`next_action` (the nearest open action across holders). Use a
+holder's `prospect_id` only with tools run by that member: `get_lead`
+and `update_lead` act on YOUR leads.
+
+Filters
+-------
+- member_user_id: only this member's leads (id from
+  `list_org_members`).
+- icp_id: only leads in this ICP (ids from `list_icps`, or from a
+  holder's `memberships`). `level` (A best, C weakest) only applies
+  together with `icp_id`.
+- contact_status: pipeline status slug, same values as `list_leads`
+  (an untouched lead has no status and is not matched by
+  'not_contacted').
+- search: free-text match on the lead's name/headline.
+- favorite: True for leads starred by at least one holder.
+
+Pagination
+----------
+`limit` (up to 100) and `offset` count lead ROWS, and a person held
+by several members spans several rows: a page can return fewer
+items than `limit`. Continue with `offset + limit` while `has_more`
+is true. `total_people` is the number of distinct people matching.
+
+| Input | Type | Default | Description |
+|---|---|---|---|
+| `member_user_id` | `string \| null` | null | Member User Id |
+| `icp_id` | `string \| null` | null | Icp Id |
+| `level` | `string \| null` | null | Level |
+| `contact_status` | `string \| null` | null | Contact Status |
+| `search` | `string \| null` | null | Search |
+| `favorite` | `boolean \| null` | null | Favorite |
+| `limit` | `integer` | `20` | Limit |
+| `offset` | `integer` | `0` | Offset |
 
 
 ---
@@ -1146,6 +2614,12 @@ enough snapshots to cover the whole period. Check follower `coverage`;
 `available_range_gained` only covers the returned dates.
 `summary.followers.daily` contains profile-level daily gains.
 
+Each `top_posts` entry carries `media_type` (`image`, `video`,
+`document`, `article`, `poll` or `text`) and `thumbnail_url`: the post's
+image, the video's preview frame, the document's first page or the
+article image, as a URL you can embed in a report. It is null for text
+and poll posts, and when no image was stored for the post.
+
 Identifiers — IMPORTANT:
 `top_posts[].linkedin_share_urn` is the LinkedIn share URN, NOT the
 MagicPost UUID expected by `get_post`, `get_org_member_post`,
@@ -1183,6 +2657,11 @@ same semantics as `list_my_posts`. Members and members' posts are
 returned even if the LLM client doesn't have a direct relationship
 with them — org-admin permission is sufficient.
 
+Each post row carries `media_type` (`image`, `video`, `document` or
+`text`) and `thumbnail_url`: the post's first image, the video's
+preview frame or the document's cover, as a URL you can embed. It is
+null for text posts and when no preview image exists.
+
 Each returned post row exposes its MagicPost UUID as `id`. To read
 ONE post's full record (full text, media, stats…), pass that `id` to
 `get_org_member_post(member_user_id=..., post_id=...)` — NOT to
@@ -1206,7 +2685,9 @@ Fetch the full record of ONE post owned by a member of your org.
 Org-admin read counterpart to `get_post` (which only reads YOUR own
 posts). Use this when you already have a member's post UUID — typically
 from `list_org_member_posts` — and need its full content/metadata
-(full text, schedule date, LinkedIn URL, stats, media, etc.).
+(full text, schedule date, LinkedIn URL, stats, media, etc.). The
+record also carries `media_type` and `thumbnail_url`, with the same
+meaning as in `list_org_member_posts`.
 
 Only callable by org super_admins. Both arguments are REQUIRED:
   - `member_user_id`: the post owner's user id, exactly as returned by

@@ -7,6 +7,7 @@ tools, then regenerates mcp/tools.mdx as a single deterministic file.
 
 Usage:
     MAGICPOST_PAT=mp_xxx python scripts/sync-tools.py
+    MAGICPOST_TOOLS_JSON=tools.json python scripts/sync-tools.py   # before deploy
 
 The PAT only needs to be valid — it's not stored. Use a dedicated key
 named "docs-sync" for this if you want to revoke it independently.
@@ -45,30 +46,47 @@ CATEGORIES: dict[str, list[str]] = {
         "generate_post", "list_templates", "list_my_writing_styles",
         "find_writing_style_profile", "add_writing_style_profile",
     ],
-    "Posts": [
-        "list_my_posts", "get_post", "create_or_update_post",
-        "attach_media_to_post", "prepare_post_media_upload",
-        "complete_post_media_upload", "update_post_media", "score_post",
+    "Posts & mentions": [
+        "list_my_posts", "get_post", "create_or_update_post", "delete_post",
+        "duplicate_post", "score_post", "search_mentions", "list_recent_mentions",
     ],
-    "Ideas": ["add_idea_to_notebook"],
+    "Media, visuals & carousels": [
+        "attach_media_to_post", "attach_html_slides", "create_media_drop_link",
+        "prepare_post_media_upload", "complete_post_media_upload",
+        "update_post_media", "remove_post_media", "attach_library_media_to_post",
+        "list_media_library", "get_media_library_overview", "manage_media_asset",
+        "manage_media_folder",
+    ],
+    "Ideas & calendar": [
+        "add_idea_to_notebook", "list_notebook_ideas", "get_notebook_idea",
+        "manage_notebook_idea", "manage_notebook_columns", "manage_idea_attachment",
+        "manage_idea_sources", "get_idea_generator", "update_idea_generator_settings",
+        "generate_ideas", "manage_generated_idea", "get_calendar",
+        "manage_calendar_idea", "get_recommended_posting_times",
+    ],
     "Scheduling": [
         "schedule_post", "cancel_scheduled_post", "publish_post_now",
         "schedule_post_comment", "delete_post_comment",
     ],
-    "Comments": ["list_received_comments", "sync_received_comments"],
+    "Comments & engagement": [
+        "list_received_comments", "sync_received_comments", "reply_to_comment",
+        "engage_with_post", "list_engagement_queue", "cancel_queued_engagement",
+    ],
     "Analytics": [
         "list_linkedin_post_metrics", "get_metrics_summary",
         "get_metrics_freshness", "refresh_my_posts",
     ],
     "Inspiration": ["search_inspiration_posts"],
     "Leads & CRM": [
-        "list_leads", "get_lead", "list_icps", "get_leads_summary",
-        "get_detection_status", "detect_leads", "update_lead",
+        "list_leads", "get_lead", "update_lead", "get_leads_summary",
+        "get_detection_status", "detect_leads", "list_icps", "get_icp",
+        "create_icp", "update_icp", "manage_icp", "suggest_icps",
+        "preview_icp_audience", "score_icp_leads", "manage_icp_leads",
     ],
     "Org / team": [
         "list_org_members", "get_org_metrics_summary", "list_org_member_posts",
         "get_org_member_post", "create_member_post", "schedule_member_post",
-        "add_member_idea_to_notebook",
+        "add_member_idea_to_notebook", "list_org_leads", "list_org_icps",
     ],
 }
 
@@ -275,12 +293,19 @@ icon: "wrench"
 
 
 def main() -> int:
-    pat = os.environ.get("MAGICPOST_PAT")
-    if not pat:
-        print("error: MAGICPOST_PAT env var is required", file=sys.stderr)
-        return 1
-
-    tools = fetch_tools(pat)
+    # Before a backend deploy, the live server does not list the new tools yet:
+    # MAGICPOST_TOOLS_JSON points to a tools/list dump made from the backend
+    # branch (build_server()._tool_manager.list_tools()).
+    tools_json = os.environ.get("MAGICPOST_TOOLS_JSON")
+    if tools_json:
+        tools = json.loads(Path(tools_json).read_text(encoding="utf-8"))
+    else:
+        pat = os.environ.get("MAGICPOST_PAT")
+        if not pat:
+            print("error: MAGICPOST_PAT (or MAGICPOST_TOOLS_JSON) env var is required",
+                  file=sys.stderr)
+            return 1
+        tools = fetch_tools(pat)
     if not tools:
         print("error: MCP server returned no tools", file=sys.stderr)
         return 1
