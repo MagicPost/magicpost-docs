@@ -44,31 +44,60 @@ CATEGORIES: dict[str, list[str]] = {
     "Generation & styles": [
         "generate_post", "list_templates", "list_my_writing_styles",
         "find_writing_style_profile", "add_writing_style_profile",
+        "get_generation_settings", "manage_generation_settings",
     ],
     "Posts": [
         "list_my_posts", "get_post", "create_or_update_post",
         "attach_media_to_post", "prepare_post_media_upload",
-        "complete_post_media_upload", "update_post_media", "score_post",
+        "complete_post_media_upload", "update_post_media", "remove_post_media",
+        "create_media_drop_link", "attach_html_slides", "score_post",
+        "delete_post", "duplicate_post", "manage_labels", "import_linkedin_post",
+        "search_mentions", "list_recent_mentions",
     ],
-    "Ideas": ["add_idea_to_notebook"],
-    "Scheduling": [
+    "Scheduling & calendar": [
         "schedule_post", "cancel_scheduled_post", "publish_post_now",
         "schedule_post_comment", "delete_post_comment",
+        "get_calendar", "manage_calendar_idea", "get_recommended_posting_times",
     ],
-    "Comments": ["list_received_comments", "sync_received_comments"],
-    "Analytics": [
+    "Post discussion & approval": ["list_post_discussion", "manage_post_discussion"],
+    "Ideas": [
+        "add_idea_to_notebook", "list_notebook_ideas", "get_notebook_idea",
+        "manage_notebook_idea", "manage_idea_attachment", "manage_notebook_columns",
+        "get_idea_generator", "manage_idea_sources", "generate_ideas",
+        "manage_generated_idea", "update_idea_generator_settings",
+    ],
+    "Media library & collections": [
+        "list_media_library", "get_media_library_overview", "manage_media_folder",
+        "manage_media_asset", "attach_library_media_to_post",
+        "list_collections", "manage_collection",
+    ],
+    "Comments & engagement": [
+        "list_received_comments", "sync_received_comments", "reply_to_comment",
+        "engage_with_post", "list_engagement_queue", "cancel_queued_engagement",
+        "get_engagement_feed", "get_engagement_activity", "manage_engagement_feed",
+        "list_engagement_lists", "manage_engagement_list",
+        "manage_engagement_gesture", "manage_comment_bookmarks",
+        "get_engagement_recommendations",
+    ],
+    "Analytics & insights": [
         "list_linkedin_post_metrics", "get_metrics_summary",
         "get_metrics_freshness", "refresh_my_posts",
+        "get_insights", "manage_audience_analysis",
     ],
     "Inspiration": ["search_inspiration_posts"],
     "Leads & CRM": [
         "list_leads", "get_lead", "list_icps", "get_leads_summary",
         "get_detection_status", "detect_leads", "update_lead",
+        "suggest_icps", "create_icp", "update_icp", "get_icp", "manage_icp",
+        "score_icp_leads", "manage_icp_leads", "preview_icp_audience",
+        "list_lead_exclusions", "manage_lead_exclusions", "get_lead_credit_history",
+        "manage_crm_connections", "send_leads_to_crm",
     ],
     "Org / team": [
         "list_org_members", "get_org_metrics_summary", "list_org_member_posts",
         "get_org_member_post", "create_member_post", "schedule_member_post",
-        "add_member_idea_to_notebook",
+        "add_member_idea_to_notebook", "list_org_leads", "list_org_icps",
+        "get_team_activity", "list_org_groups", "manage_org_group",
     ],
 }
 
