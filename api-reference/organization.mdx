@@ -1,0 +1,169 @@
+---
+title: "Organisation"
+description: "Endpoints for the administrators of a Team or Agency organisation: members, team metrics, team posts."
+icon: "users"
+---
+
+These endpoints read or act across the accounts of an organisation. The caller
+must be an **administrator** of a Team or Agency organisation. An administrator
+with a restricted role (an account manager, for example) only reaches the
+accounts assigned to them: the others are left out of the lists and answer
+`404` when targeted.
+
+| Error | HTTP | When |
+|---|---|---|
+| `org_admin_required` | 403 | The caller administers no organisation |
+| `member_not_in_org` | 404 | The member is outside the organisation, or outside the caller's scope |
+
+<Tip>
+  To work on **one** member's account, you rarely need a dedicated endpoint:
+  send `X-MagicPost-Member-Id` on the regular endpoints (posts, scheduling,
+  metrics, comments, leads...) and the request runs on that account. See
+  [Acting for a member](/api-reference/overview#acting-for-a-member-of-your-organisation).
+</Tip>
+
+## GET /api/v1/org/members
+
+List the active members of your organisation. The `user_record_id` of a member
+is the id to pass as `member_id`, as `member_user_id` in the MCP tools, or in
+the `X-MagicPost-Member-Id` header.
+
+```bash
+curl https://api.magicpost.in/api/v1/org/members \
+  -H "Authorization: Bearer mp_xxx"
+```
+
+**Response**
+
+```json
+{
+  "org_id": "org-id",
+  "members": [
+    {
+      "user_record_id": "recXXXXXXXXXXXXXX",
+      "email": "sarah@example.com",
+      "full_name": "Sarah Martin",
+      "status": "free",
+      "linkedin_connected": true,
+      "is_org_admin": false
+    }
+  ]
+}
+```
+
+`status` is the member's plan status in MagicPost. `linkedin_connected` tells
+whether the member has connected LinkedIn, which scheduling and publishing
+require.
+
+## GET /api/v1/org/metrics/summary
+
+Compact analytics for every member, or for one.
+
+**Query params**
+
+| Param | Type | Default | Values |
+|---|---|---|---|
+| `period` | string | `30d` | `1d`, `7d`, `30d`, `90d`, `180d`, `365d`, `all` |
+| `member_id` | string | none | A `user_record_id`. Omit it for the whole team |
+| `top_n` | int | `3` | Top posts per summary, clamped to 1 to 20 |
+
+```bash
+curl "https://api.magicpost.in/api/v1/org/metrics/summary?period=30d" \
+  -H "Authorization: Bearer mp_xxx"
+```
+
+**Response, whole team**
+
+```json
+{
+  "org_id": "org-id",
+  "period": "30d",
+  "members": [
+    {
+      "user_record_id": "recXXXXXXXXXXXXXX",
+      "name": "Sarah Martin",
+      "email": "sarah@example.com",
+      "summary": { "period": "30d", "totals": { "posts_count": 8, "impressions": 41200 } }
+    }
+  ]
+}
+```
+
+**Response, one member** (`member_id` set)
+
+```json
+{
+  "org_id": "org-id",
+  "member_id": "recXXXXXXXXXXXXXX",
+  "summary": { "period": "30d", "totals": { "posts_count": 8, "impressions": 41200 } }
+}
+```
+
+Each `summary` has the same shape as
+`GET /api/v1/metrics/summary` (shortened above, see [Metrics](/api-reference/metrics)). A member whose metrics cannot be built is left out of the
+team response.
+
+## GET /api/v1/org/posts
+
+List posts across the organisation, grouped by member, or the posts of one
+member.
+
+**Query params**
+
+| Param | Type | Default | Values |
+|---|---|---|---|
+| `status` | string | `scheduled` | `draft`, `scheduled`, `published` |
+| `member_id` | string | none | A `user_record_id`. Omit it for every member |
+| `limit` | int | `20` | Per member, clamped to 1 to 100 |
+| `offset` | int | `0` | Per member |
+
+```bash
+curl "https://api.magicpost.in/api/v1/org/posts?status=scheduled&limit=10" \
+  -H "Authorization: Bearer mp_xxx"
+```
+
+**Response, every member**
+
+```json
+{
+  "org_id": "org-id",
+  "status": "scheduled",
+  "limit": 10,
+  "offset": 0,
+  "members": [
+    {
+      "user_record_id": "recXXXXXXXXXXXXXX",
+      "email": "sarah@example.com",
+      "name": "Sarah Martin",
+      "posts": []
+    }
+  ]
+}
+```
+
+With `member_id`, the response carries `member_id` and a single `posts` array
+instead of `members`. Each post is a compact record, as in the list of
+[Posts](/api-reference/posts).
+
+## POST /api/v1/org/members/&lt;member_id&gt;/posts
+
+Create a draft owned by a member. Described on the [Posts](/api-reference/posts) page.
+
+## Other organisation endpoints
+
+Each of these backs the MCP tool of the same purpose. The
+[tool catalog](/mcp/tools) describes their inputs and what they return.
+
+| Endpoint | Purpose | MCP tool |
+|---|---|---|
+| `GET /api/v1/org/members/<member_id>/posts/<post_id>` | Full record of one post owned by a member | `get_org_member_post` |
+| `GET /api/v1/org/team-activity` | Team activity, as on the organisation's Activity page | `get_team_activity` |
+| `GET /api/v1/org/team-calendar` | The aggregated team calendar | `get_team_activity` |
+| `GET /api/v1/org/groups` | Member groups (departments, subsidiaries, or an agency's clients) | `list_org_groups` |
+| `POST /api/v1/org/groups/manage` | Create, change or delete a group | `manage_org_group` |
+| `POST /api/v1/org/team-calendar/schedule` | Plan the same post for the members of a group | `manage_org_group` |
+| `POST /api/v1/org/team-calendar/ideas` | Plan the same idea for the members of a group | `manage_org_group` |
+| `GET /api/v1/org/leads` | Leads of the whole team, one item per person (`limit`, `offset`, `icp_id`, `level` A, B or C, `member_id`) | `list_org_leads` |
+
+`POST /api/v1/org/team-calendar/schedule` counts against the publishing rate
+limit (30 requests per minute), like the other scheduling endpoints.

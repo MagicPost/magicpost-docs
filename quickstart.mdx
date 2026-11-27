@@ -1,68 +1,80 @@
 ---
 title: "Quickstart"
-description: "Connect Claude Desktop to your MagicPost account in 3 steps."
+description: "Connect your AI assistant to your MagicPost account in 3 steps, without an API key."
 icon: "play"
 ---
 
-By the end of this page, Claude Desktop can list your scheduled posts, draft
-new ones, attach supported files when the client provides them to the MCP,
-schedule them, and read your analytics — all from a normal conversation.
+By the end of this page, your assistant can list your scheduled posts, draft
+new ones, attach media, schedule them, reply to comments and read your
+analytics, all from a normal conversation.
 
-## 1. Create an API key
+AI assistants connect by **sign-in**: you paste one address, log in to
+MagicPost in the window that opens, and that's it. No API key to create or
+store. API keys remain the way to connect automation tools (n8n, Zapier, Make)
+and your own code: see [Authentication](/essentials/authentication).
 
-<Steps>
-  <Step title="Open Settings">
-    Sign in to [app.magicpost.in](https://app.magicpost.in/account) and go to
-    **Settings → API & MCP**.
-  </Step>
-  <Step title="Create a key">
-    Click **Create a key**, name it (e.g. `Claude Desktop`), and submit.
-  </Step>
-  <Step title="Copy the token">
-    The cleartext token (`mp_...`) is shown **exactly once**. Copy it now —
-    you won't be able to see it again. The reveal dialog also includes a
-    ready-to-paste `claude_desktop_config.json` snippet.
-  </Step>
-</Steps>
+<Note>
+  The API and the MCP server are included in the Creator plan and above, during
+  a free trial, and with a Creator seat in a Team or Agency organisation. On
+  Agency, an administrator who uses no seat has access too.
+</Note>
 
-## 2. Configure Claude Desktop
+## 1. Copy the address
 
-<Steps>
-  <Step title="Open the config file">
-    Open `~/Library/Application Support/Claude/claude_desktop_config.json` on
-    macOS (or the equivalent on Windows/Linux).
-  </Step>
-  <Step title="Add the MCP server">
-    Paste this block (the create-key dialog has it pre-filled with your token):
+```
+https://mcp.magicpost.in/mcp
+```
+
+You also find it in the app: **Settings → API & MCP → Connect a tool**, then
+pick your assistant.
+
+## 2. Add it to your assistant
+
+<Tabs>
+  <Tab title="Claude">
+    1. Open **Settings → Connectors → Add custom connector**.
+    2. Paste the address and confirm.
+    3. Log in to MagicPost in the window that opens.
+
+    One connection covers claude.ai, the desktop app and mobile.
+    [More on Claude](/mcp/setup-claude-desktop).
+  </Tab>
+  <Tab title="ChatGPT, Gemini, Perplexity, Grok, Mistral, Codex">
+    1. In the assistant's settings, add a custom MCP connector.
+    2. Paste the address and choose the OAuth connection.
+    3. Log in to MagicPost in the window that opens.
+
+    [More on these assistants](/mcp/setup-other-assistants).
+  </Tab>
+  <Tab title="Cursor">
+    Add this block to your `mcp.json`, then log in to MagicPost when Cursor
+    asks:
 
     ```json
     {
       "mcpServers": {
         "magicpost": {
-          "command": "npx",
-          "args": [
-            "-y",
-            "mcp-remote",
-            "https://mcp.magicpost.in/mcp",
-            "--header",
-            "Authorization:Bearer mp_YOUR_TOKEN_HERE"
-          ]
+          "url": "https://mcp.magicpost.in/mcp"
         }
       }
     }
     ```
 
-    <Note>
-      Claude Desktop talks to MCP servers over stdio. `mcp-remote` is a tiny
-      npm bridge that proxies stdio ↔ HTTP so you can connect to remote MCP
-      servers. It runs locally and only forwards your requests.
-    </Note>
-  </Step>
-  <Step title="Restart Claude Desktop">
-    Fully quit (Cmd+Q on macOS, not just close the window) and relaunch.
-    A new MCP server `magicpost` should appear under the tools indicator.
-  </Step>
-</Steps>
+    [More on Cursor](/mcp/setup-cursor).
+  </Tab>
+  <Tab title="Claude Code">
+    Run this command, then type `/mcp` in Claude Code and log in:
+
+    ```bash
+    claude mcp add --transport http magicpost https://mcp.magicpost.in/mcp
+    ```
+
+    [More on Claude Code](/mcp/setup-claude-code).
+  </Tab>
+</Tabs>
+
+The assistant then appears under **Settings → API & MCP** in MagicPost, where
+you can disconnect it at any time.
 
 ## 3. Try it
 
@@ -70,37 +82,36 @@ In any conversation, ask things like:
 
 - *"List my scheduled posts on MagicPost"*
 - *"Summarize my LinkedIn analytics for the last 30 days"*
-- *"Create a draft: 'My first post via Claude'"*
-- *"Create a draft from this text, attach this image, then schedule it for
-  tomorrow at 14:00"* (attach the file to the conversation before sending)
-- *"Schedule post xyz for tomorrow 14:00"* (Claude will warn you if you already
-  have other posts that day before going through)
+- *"Write a post from this transcript, in my voice, and save it as a draft"*
+- *"Schedule that draft for tomorrow at 14:00"* (the assistant warns you if
+  you already have a post that day before going through)
+- *"Reply to the comments on my last post"*
 
 <Note>
-  Media attachment depends on the MCP client exposing the uploaded file as a
-  temporary file reference. If the client does not offer the file to the
-  `attach_media_to_post` tool, Claude can call `create_media_drop_link` and
-  give you a link where you drop the file from your browser.
+  To add media, ask for it in the chat. If your client cannot pass a file to
+  the tool (claude.ai), the assistant gives you a private link where you drop
+  it. Visuals and carousels it designs are attached directly. See
+  [Media, visuals and carousels](/mcp/media-attachments).
 </Note>
 
-If Claude says it doesn't have access to your data, the MCP server probably
-didn't load — check the config file syntax and that `mcp-remote` is reachable
-(your machine needs `npx`).
+If the assistant says it has no access to your data, the connector is probably
+not enabled in that conversation: check that MagicPost is listed among its
+connectors, and connect again if the login window was closed before the end.
 
 ## Next steps
 
 <CardGroup cols={2}>
   <Card title="MCP tools" icon="wrench" href="/mcp/tools">
-    Full catalog of what the LLM can do.
+    Full catalog of what the assistant can do.
   </Card>
-  <Card title="Attach media" icon="paperclip" href="/mcp/media-attachments">
-    Supported formats, limits, and the complete workflow.
+  <Card title="Media, visuals and carousels" icon="paperclip" href="/mcp/media-attachments">
+    Images, videos, PDFs, drop links, and carousels designed by the assistant.
   </Card>
-  <Card title="Setup Claude Code" icon="terminal" href="/mcp/setup-claude-code">
-    Connect with OAuth and attach files from your local workspace.
+  <Card title="Teams and agencies" icon="users" href="/mcp/overview#acting-for-a-member-of-your-organisation">
+    One connection for every account you manage.
   </Card>
-  <Card title="Setup Cursor" icon="terminal" href="/mcp/setup-cursor">
-    Same backend, different MCP client.
+  <Card title="Client assistant" icon="handshake" href="/mcp/client-assistant">
+    Let an agency's client connect their own assistant to their client space.
   </Card>
   <Card title="Direct API" icon="code" href="/api-reference/overview">
     Use curl or your own scripts.

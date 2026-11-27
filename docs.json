@@ -28,7 +28,9 @@
               "mcp/setup-claude-desktop",
               "mcp/setup-claude-code",
               "mcp/setup-cursor",
+              "mcp/setup-other-assistants",
               "mcp/media-attachments",
+              "mcp/client-assistant",
               "mcp/tools"
             ]
           }
@@ -46,6 +48,7 @@
             "pages": [
               "api-reference/api-keys",
               "api-reference/metrics",
+              "api-reference/organization",
               "api-reference/posts",
               "api-reference/scheduling",
               "api-reference/content"

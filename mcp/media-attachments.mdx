@@ -1,100 +1,109 @@
 ---
-title: "Attach media"
-description: "Attach a chat-provided or local image, video, GIF, or PDF to a MagicPost draft."
+title: "Media, visuals and carousels"
+description: "Attach images, videos, GIFs and PDFs to a MagicPost draft, or let the assistant design a visual or a carousel for it."
 icon: "paperclip"
 ---
 
-MagicPost supports two media workflows:
+A LinkedIn post can carry up to 9 images, or one video, or one PDF (shown as a
+carousel). The MCP gives the assistant several ways to get media onto a draft.
+Pick the one that matches where the file comes from:
 
-- `attach_media_to_post` copies a file reference supplied by a chat host, or
-  downloads a public `https://` link to the file (`media_url`);
-- `prepare_post_media_upload` and `complete_post_media_upload` let code and CLI
-  clients upload bytes from their local filesystem.
+| The media is... | Use |
+|---|---|
+| Something the assistant designs (carousel, chart, quote card, infographic) | [`attach_html_slides`](#visuals-and-carousels-designed-by-the-assistant) |
+| A file you have, and you work in claude.ai | [`create_media_drop_link`](#your-own-files-from-claudeai-the-drop-link) |
+| A file you added to a ChatGPT conversation | [`attach_media_to_post`](#files-added-to-the-chat) |
+| A file on your computer, and you work in Claude Code or another local client | [`prepare_post_media_upload`](#local-files) |
+| A file already online (public link) | [`attach_media_to_post`](#files-already-online) with `media_url` |
+| A file in your MagicPost media library | [`attach_library_media_to_post`](#files-from-your-media-library) |
 
-Each call links one file to an existing draft. You can then schedule or
-publish the post with its media.
+All of them attach to an existing draft: call `create_or_update_post` first and
+keep the returned `post_id`. Then schedule or publish the post as usual.
 
-When neither works (claude.ai, or a file the user only has on their computer
-or phone), `create_media_drop_link` gives the user a temporary link where they
-drop the files from their browser. A visual or a carousel the assistant
-designs itself goes through `attach_html_slides`, and a file already in the
-user's media library through `attach_library_media_to_post`.
+## Visuals and carousels designed by the assistant
 
-Organisation admins can use the same workflows on a member's draft:
+The assistant writes each slide as an HTML page, MagicPost renders it and
+attaches the result to the draft. One slide becomes an image, 2 to 20 slides
+become a PDF carousel. Nothing has to be downloaded or uploaded, so this works
+in every client, claude.ai included.
 
-1. Create the draft with `create_member_post` and the member's
-   `member_user_id` (`create_or_update_post` only edits a member's draft).
-2. Pass the returned `post_id` and the same `member_user_id` to the media tool.
-3. Schedule it with `schedule_member_post` (or `schedule_post` with the same
-   `member_user_id`).
+> Turn this draft into a 6-slide carousel in our brand colors and attach it.
 
-## Chat-host workflow
+- Formats: `portrait` (1080x1350, the default) or `square` (1080x1080).
+- Each slide is checked before anything is attached: text that overflows, is
+  cut, or overlaps something. If a slide has a defect, nothing is attached and
+  the assistant gets the list of slides to fix, then sends them again.
+- Slides are rendered in an isolated browser: no scripts, no external images.
+  Inline SVG (charts, icons), small embedded images and Google Fonts work.
+- Up to 120 slides rendered per hour per account.
+
+## Your own files from claude.ai: the drop link
+
+claude.ai does not pass the files of a conversation to tools, and the
+assistant's own sandbox cannot upload them either. Instead, the assistant
+creates a private link for the draft:
 
 <Steps>
-  <Step title="Create or update the draft">
-    Call `create_or_update_post` and keep the returned `post_id`.
+  <Step title="Ask for the link">
+    "Attach my photo to this draft." The assistant calls
+    `create_media_drop_link` and gives you a link.
   </Step>
-  <Step title="Attach the file">
-    Add the file to the conversation, then call `attach_media_to_post` with the
-    draft's `post_id`. For a member-owned draft, also pass `member_user_id`.
-    You can provide optional alt text for an image.
+  <Step title="Drop your files">
+    Open the link in any browser, no login needed, and drop your images, video
+    or PDF. They attach to the draft as soon as they are uploaded.
   </Step>
-  <Step title="Schedule or publish">
-    After the attachment succeeds, call `schedule_post` or
-    `publish_post_now` with the same `post_id`.
+  <Step title="Tell the assistant">
+    Say it is done: the assistant checks the draft and continues.
   </Step>
 </Steps>
 
-For example:
+The link works for 30 minutes, only for that draft, and for 9 files at most.
+It shows only the first lines of the draft. In `add` mode (the default) files
+are added after the draft's images; in `replace` mode the first file replaces
+the current media.
 
-> Create a LinkedIn draft from this text, attach the image in this
-> conversation with the alt text "Product analytics dashboard", then schedule
-> it for tomorrow at 14:00.
+## Files added to the chat
 
-<Note>
-  Your MCP client must expose the uploaded file to the tool as a temporary file
-  reference. If `attach_media_to_post` is not offered the file, create the
-  draft in chat and add the media from the MagicPost web app.
-</Note>
+In clients that hand conversation files to tools (ChatGPT, for example), add
+the file to the conversation and ask the assistant to attach it. It calls
+`attach_media_to_post` with the file the client provides.
 
-## Local-file workflow
+> Attach the image in this conversation to my draft, with the alt text
+> "Product analytics dashboard".
 
-Use this workflow with Claude Code or another MCP client that can read a local
-file and perform an HTTPS upload.
+If the client does not offer the file to the tool, the assistant uses the drop
+link instead.
+
+## Files already online
+
+If the file is reachable at a public `https://` link (an image on a website, a
+shared file), the assistant passes it as `media_url` to `attach_media_to_post`.
+The link must point to the file itself, not to a page that displays it.
+
+## Local files
+
+With Claude Code or another client that can read your files and make HTTPS
+requests:
 
 <Steps>
-  <Step title="Create or update the draft">
-    Call `create_or_update_post` and keep the returned `post_id`.
-  </Step>
   <Step title="Prepare the upload">
-    Call `prepare_post_media_upload` with the draft's `post_id`, the file's
-    base name, and its MIME type. The tool returns an `upload_id` and a
-    short-lived multipart `upload_request`. For a member-owned draft, also
-    pass `member_user_id`.
+    `prepare_post_media_upload` with the draft's `post_id`, the file name and
+    its MIME type returns an `upload_id` and a short-lived `upload_request`.
   </Step>
-  <Step title="Upload the local bytes">
-    Send the local file to the signed URL exactly as described by
-    `upload_request`. The URL expires after 15 minutes and must not be reused.
+  <Step title="Upload the bytes">
+    The client sends the file to the signed URL exactly as described by
+    `upload_request`. The URL expires after 15 minutes.
   </Step>
   <Step title="Complete the upload">
-    Call `complete_post_media_upload` with the same `post_id` and `upload_id`.
-    Pass the same `member_user_id` again for a member-owned draft. MagicPost
-    validates the stored file before attaching it to the draft.
-  </Step>
-  <Step title="Schedule or publish">
-    Call `schedule_post` or `publish_post_now` with the draft's `post_id`.
+    `complete_post_media_upload` with the same `post_id` and `upload_id`.
+    MagicPost checks the stored file before attaching it.
   </Step>
 </Steps>
 
-In Claude Code, a request can be as simple as:
+> Attach the local file at `/absolute/path/to/product.png` to my draft, then
+> schedule it for tomorrow at 14:00.
 
-> Create a LinkedIn draft from this text, attach the local file at
-> `/absolute/path/to/product.png`, then schedule it for tomorrow at 14:00.
-
-Claude Code can read the local file, call the two MagicPost upload tools, and
-perform the signed HTTPS upload between them.
-
-For manual troubleshooting, the equivalent upload shape is:
+For manual troubleshooting, the upload looks like this:
 
 ```bash
 curl --fail-with-body --request PUT \
@@ -105,6 +114,32 @@ curl --fail-with-body --request PUT \
   '<SIGNED_UPLOAD_URL>'
 ```
 
+<Note>
+  Sandboxed environments, such as code execution in claude.ai, usually cannot
+  reach the upload server. The response of `prepare_post_media_upload` then
+  tells the assistant to switch to the drop link, or to `attach_html_slides`
+  for something it created.
+</Note>
+
+## Files from your media library
+
+`list_media_library` lists the files stored in your MagicPost media library,
+and `attach_library_media_to_post` attaches one of them to a draft without
+uploading it again. `duplicate_post` copies a past post into a new draft, media
+included by default.
+
+## Several images, replacing and removing media
+
+- `append=true` adds an image after the draft's images, up to 9. Upload them
+  one after the other, in the order they should appear.
+- `replace_existing=true` replaces all the current media with the new file.
+  The post and its scheduled comments are kept.
+- `remove_post_media` removes one attachment (by its URL from `get_post`), or
+  all of them with `remove_all=true`. The text and scheduled comments stay.
+- `update_post_media` changes the alt text of an image or the title of a PDF.
+
+A video or a PDF is always the only media of a post.
+
 ## Supported files
 
 | Media | Formats | Maximum size |
@@ -114,74 +149,56 @@ curl --fail-with-body --request PUT \
 | Videos | MP4, MOV, AVI, WebM, WMV | 200 MB |
 | Documents | PDF | 100 MB |
 
-A post holds up to 9 images, shown by LinkedIn as a multi-image post: attach
-them one per call with `append=True`. A video or a PDF must be the only media
-of its post.
-
 ## Draft requirements
 
 The target post must:
 
 - belong to your MagicPost account, or to a member of your organisation you
-  manage as an org admin (pass their `member_user_id`);
-- be unpublished and not currently publishing;
-- be unscheduled;
+  manage as an org admin (pass their `member_user_id` to the media tool);
+- be unpublished and unscheduled: cancel the schedule, attach, then schedule
+  again;
 - have no poll.
 
-If the draft is already scheduled, ask the client to cancel the schedule,
-attach the media, then schedule it again.
+Organisation admins use the same workflows on a member's draft:
 
-If the draft already has media, pass `append=True` to add an image after the
-existing ones, or `replace_existing=True` to replace all attachments (the post
-and its scheduled comments are kept). `update_post_media` changes the alt text
-or title of an attachment, and `remove_post_media` removes one or all of them.
+1. Create the draft with `create_member_post` and the member's
+   `member_user_id` (`create_or_update_post` only edits a member's draft).
+2. Call the media tool with the same `member_user_id`.
+3. Schedule it with `schedule_member_post`, or `schedule_post` with the same
+   `member_user_id`.
 
-## Client compatibility
+See [Acting for a member](/mcp/overview#acting-for-a-member-of-your-organisation).
 
-MagicPost declares `media_file` as a file input for MCP hosts that support
-chat-provided files. File attachment behavior still depends on the host and its
-MCP integration.
+## Privacy
 
-claude.ai does not pass chat attachments, nor files created in its sandbox,
-to MCP tools. There, ask the assistant for a drop link
-(`create_media_drop_link`), give it a public link to the file, or let it design
-the visual with `attach_html_slides`. With ChatGPT clients that pass files to
-apps, attach the file to the same conversation and explicitly ask the
-assistant to use it with `attach_media_to_post`.
-
-Claude Code and CLI hosts do not pass local paths to a remote MCP server. They
-must use the `prepare_post_media_upload` / `complete_post_media_upload` workflow
-instead. A local path is read by the client, never by the MagicPost server.
-
-## Privacy and transfer
-
-The temporary file URL supplied by a chat host is used only during the tool
-call. For local uploads, the signed storage URL expires after 15 minutes.
-MagicPost validates the file type, size, MIME type, and signature before
-linking the stored copy to your draft. Temporary and signed URLs are not stored
-in the post or included in tool audit data.
-
-To reuse a file already stored in MagicPost, `list_media_library` lists the
-media library and `attach_library_media_to_post` attaches one of its files to
-a draft without uploading it again. `duplicate_post` copies a past post,
-media included by default, into a new draft.
+Temporary file URLs from a chat client are used only during the tool call.
+Signed upload URLs expire after 15 minutes and drop links after 30 minutes;
+drop link tokens are stored hashed. MagicPost checks the type, size and
+content of every file before attaching it. Temporary and signed URLs are never
+stored in the post or in tool audit data.
 
 ## Common errors
 
 | Error | What to do |
 |---|---|
-| File not available to the tool | Attach the file again in the current conversation and retry. |
-| Local path sent to `attach_media_to_post` | Use the prepare/complete local-file workflow. |
-| Signed upload expired | Call `prepare_post_media_upload` again to create a new upload. |
-| Upload validation failed | Verify the extension, MIME type, size, and actual file contents. |
+| `invalid_file_reference` | The client did not pass the file: use the drop link. |
+| `slide_layout_issues` | Fix the listed slides and send all the slides again. |
+| `media_upload_already_pending` | Complete or wait for the pending upload; creating a drop link frees it. |
+| Signed upload expired | Call `prepare_post_media_upload` again. |
+| Upload validation failed | Check the extension, MIME type, size and file contents. |
 | Unsupported type or file too large | Convert or compress the file to a supported format and size. |
-| Post is scheduled | Cancel the schedule, attach the file, then schedule it again. |
-| Post already has media | Pass `append=True` to add an image, or `replace_existing=True` to replace the existing media. |
-| Post contains a poll | Remove the poll (`create_or_update_post` with `remove_poll=True`) or use a separate draft. |
+| `too_many_images` | A post holds 9 images at most: remove one or replace them. |
+| `media_append_not_images` | A video or a PDF must be alone: use `replace_existing=true`. |
+| Post is scheduled | Cancel the schedule, attach the file, then schedule again. |
+| Post contains a poll | Remove the poll (`create_or_update_post` with `remove_poll=True`) or use another draft. |
 
 ## Tool details
 
 See the generated schemas for
-[`attach_media_to_post`](/mcp/tools#attach-media-to-post),
-[`prepare_post_media_upload`](/mcp/tools#prepare-post-media-upload), and
-[`complete_post_media_upload`](/mcp/tools#complete-post-media-upload).
+[`attach_html_slides`](/mcp/tools#attach_html_slides),
+[`create_media_drop_link`](/mcp/tools#create_media_drop_link),
+[`attach_media_to_post`](/mcp/tools#attach_media_to_post),
+[`prepare_post_media_upload`](/mcp/tools#prepare_post_media_upload),
+[`complete_post_media_upload`](/mcp/tools#complete_post_media_upload),
+[`attach_library_media_to_post`](/mcp/tools#attach_library_media_to_post) and
+[`remove_post_media`](/mcp/tools#remove_post_media).

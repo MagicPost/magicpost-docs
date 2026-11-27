@@ -5,8 +5,9 @@ icon: "robot"
 ---
 
 The MagicPost MCP server lets any [Model Context Protocol](https://modelcontextprotocol.io)
-client — Claude Desktop, Cursor, claude.ai, custom agents — operate your
-MagicPost account from within a conversation, without leaving the chat.
+client (Claude, ChatGPT, Gemini, Perplexity, Grok, Mistral, Cursor, Claude
+Code, Codex, custom agents) operate your MagicPost account from within a
+conversation, without leaving the chat.
 
 ## What it does
 
@@ -27,13 +28,13 @@ conversation.
 
 ```
    ┌─────────────────────┐
-   │   MCP client        │  Claude Desktop, Cursor, claude.ai, ...
+   │   MCP client        │  Claude, ChatGPT, Cursor, ...
    │  (your LLM tool)    │
    └──────────┬──────────┘
-              │  HTTPS, Authorization: Bearer mp_*
+              │  HTTPS, sign-in (OAuth) or Bearer mp_*
               ▼
    ┌─────────────────────┐
-   │ mcp.magicpost.in    │  Validates the PAT (cached 60s),
+   │ mcp.magicpost.in    │  Validates the key (cached 60s),
    │  (MCP server)       │  forwards calls to api.magicpost.in
    └──────────┬──────────┘
               │  HTTPS, same PAT
@@ -53,10 +54,14 @@ https://mcp.magicpost.in/mcp
 Transport: `streamable-http` (current MCP standard, stateless mode,
 JSON responses).
 
-Authentication: a MagicPost API key sent as `Authorization: Bearer mp_...`,
-or OAuth for clients that sign you in through the browser (Claude Code, for
-example). OAuth issues the same kind of `mp_` key, which you can revoke from
+Authentication: AI assistants sign you in through the browser (OAuth), with
+no key to handle. Clients that cannot sign in send a MagicPost API key as
+`Authorization: Bearer mp_...`. The sign-in issues the same kind of `mp_` key
+behind the scenes, which you can disconnect from
 [Settings → API & MCP](https://app.magicpost.in/account?tab=api-keys).
+
+An agency's client connects to a separate, smaller catalogue with the rights
+of their client space: see [Client assistant](/mcp/client-assistant).
 
 ## Available tools
 
@@ -264,8 +269,11 @@ with the `list_org_*`, `get_org_*`, `get_team_activity` and group tools.
 ## Next steps
 
 <CardGroup cols={2}>
-  <Card title="Setup Claude Desktop" icon="message" href="/mcp/setup-claude-desktop">
-    The flagship LLM client.
+  <Card title="Claude" icon="message" href="/mcp/setup-claude-desktop">
+    One sign-in for claude.ai, the desktop app and mobile.
+  </Card>
+  <Card title="ChatGPT, Gemini and others" icon="plug" href="/mcp/setup-other-assistants">
+    Perplexity, Grok, Mistral and Codex too.
   </Card>
   <Card title="Setup Claude Code" icon="terminal" href="/mcp/setup-claude-code">
     Remote MCP with local-file media uploads.
@@ -276,8 +284,11 @@ with the `list_org_*`, `get_org_*`, `get_team_activity` and group tools.
   <Card title="Tool catalog" icon="wrench" href="/mcp/tools">
     Inputs, outputs, examples for the {/* tools:count */}105{/* /tools:count */} tools.
   </Card>
-  <Card title="Attach media" icon="paperclip" href="/mcp/media-attachments">
-    Add a chat-provided or local image, video, GIF, or PDF before publishing.
+  <Card title="Media, visuals and carousels" icon="paperclip" href="/mcp/media-attachments">
+    Images, videos, PDFs, drop links, and carousels designed by the assistant.
+  </Card>
+  <Card title="Client assistant" icon="handshake" href="/mcp/client-assistant">
+    An agency's client connects their own assistant to their client space.
   </Card>
   <Card title="API reference" icon="code" href="/api-reference/overview">
     The REST endpoints behind the MCP.
