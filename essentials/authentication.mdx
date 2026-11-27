@@ -108,8 +108,14 @@ curl https://api.magicpost.in/api/v1/auth/verify \
 
 ## Scopes
 
-All v1 tokens currently have a single scope: `mcp:v1`. It grants full access
-to every `/api/v1/*` endpoint of the owning user. Finer-grained scopes (e.g.
+All v1 tokens currently have a single access scope: `mcp:v1`. It grants full
+access to every `/api/v1/*` endpoint of the owning user. `/auth/verify` may
+list two more scopes, which only tell the MCP server which tools to list (see
+[what your client lists](/mcp/overview#what-your-client-lists)):
+`mcp:metrics_only` for a member of an organisation whose plan is limited to
+analytics (the API only answers its metrics endpoints, whatever the scope),
+and `mcp:own_account_only` for an account that manages no member
+of an organisation. Finer-grained scopes (e.g.
 read-only, or "post:write" only) will land in a future version — existing
 tokens will keep their full access at that point.
 

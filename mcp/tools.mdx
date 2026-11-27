@@ -13,14 +13,17 @@ icon: "wrench"
 
 Generate a new LinkedIn post and persist it as a draft.
 
-For an org admin, member_user_id generates the post on that member's
-account, in their voice: their language, writing styles, settings,
-knowledge base, templates and credits, as if the admin had switched to
-that account in the app.
-
 Inputs
 ------
-- subject: required. What the post should be about. Free text.
+- subject: what the post should be about, with any brief, notes or
+  document text to use. Max 150000 characters. Required unless
+  notebook_idea_id is given.
+- notebook_idea_id: write the post from a notebook idea (idea_id from
+  list_notebook_ideas), like "Use the idea" in the app: its notes, or
+  its title and elements, plus the text of its files (125000 characters
+  in all) become the subject, its post type is used unless `type` is
+  given, and the idea is marked used. Not with `subject`; extra
+  direction goes in `guideline`.
 - type: optional. High-level intent:
     'actionable'    → tips, methods, operational lessons
     'aspirational'  → success stories, positive messaging
@@ -30,7 +33,8 @@ Inputs
 - language: optional. Defaults to the user's UI preference.
 - tone: optional. Same vocabulary as the UI ('standard', 'friendly', etc).
 - hook: optional. A custom opening line. Inserted verbatim.
-- guideline: optional. Extra instructions appended to the prompt.
+- guideline: optional. Extra instructions appended to the prompt
+  (tone, angle, facts to use). Max 10000 characters.
 - signature: optional. Custom signature.
 - writing_style_urn: optional.
 - template_id + template_kind: optional, always together. The `id`
@@ -91,18 +95,19 @@ Errors that need user action
 
 | Input | Type | Default | Description |
 |---|---|---|---|
-| `subject` | `string` | — | Subject |
-| `type` | `string \| null` | null | Type |
-| `language` | `string \| null` | null | Language |
-| `tone` | `string \| null` | null | Tone |
-| `hook` | `string \| null` | null | Hook |
-| `guideline` | `string \| null` | null | Guideline |
-| `signature` | `string \| null` | null | Signature |
-| `writing_style_urn` | `string \| null` | null | Writing Style Urn |
-| `template_id` | `string \| null` | null | Template Id |
-| `template_kind` | `string \| null` | null | Template Kind |
-| `template_similarity` | `string \| null` | null | Template Similarity |
-| `member_user_id` | `string \| null` | null | Org admins only: act on the account of this member of your organisation (`user_record_id` from list_org_members), exactly as if you had switched to that account in the app. Leave empty for your own account. |
+| `subject` | `string` | null | Subject |
+| `notebook_idea_id` | `string` | null | Notebook Idea Id |
+| `type` | `string` | null | Type |
+| `language` | `string` | null | Language |
+| `tone` | `string` | null | Tone |
+| `hook` | `string` | null | Hook |
+| `guideline` | `string` | null | Guideline |
+| `signature` | `string` | null | Signature |
+| `writing_style_urn` | `string` | null | Writing Style Urn |
+| `template_id` | `string` | null | Template Id |
+| `template_kind` | `string` | null | Template Kind |
+| `template_similarity` | `string` | null | Template Similarity |
+| `member_user_id` | `string` | null | Org admins only: act on this member's account (`user_record_id` from list_org_members), as if switched to it in the app. Omit for your own account. The post is generated on that member's account, in their voice: their language, writing styles, settings, knowledge base, templates and credits. |
 
 
 ---
@@ -111,8 +116,6 @@ Errors that need user action
 
 List the post templates this user can generate from: the same
 library as the template picker of the MagicPost editor.
-With member_user_id, an org admin lists the templates of that member's
-account (pass the same member_user_id to generate_post).
 
 Inputs
 ------
@@ -145,12 +148,12 @@ when the choice is not obvious.
 
 | Input | Type | Default | Description |
 |---|---|---|---|
-| `kind` | `string \| null` | null | Kind |
-| `category` | `string \| null` | null | Category |
-| `query` | `string \| null` | null | Query |
-| `language` | `string \| null` | null | Language |
+| `kind` | `string` | null | Kind |
+| `category` | `string` | null | Category |
+| `query` | `string` | null | Query |
+| `language` | `string` | null | Language |
 | `limit` | `integer` | `30` | Limit |
-| `member_user_id` | `string \| null` | null | Org admins only: act on the account of this member of your organisation (`user_record_id` from list_org_members), exactly as if you had switched to that account in the app. Leave empty for your own account. |
+| `member_user_id` | `string` | null | Org admins only: act on this member's account (`user_record_id` from list_org_members), as if switched to it in the app. Omit for your own account. Lists that member's templates: pass the same member_user_id to generate_post. |
 
 
 ---
@@ -159,7 +162,6 @@ when the choice is not obvious.
 
 List the LinkedIn profiles the user has imported as writing-style
 candidates, including which one is currently active in the UI.
-With member_user_id, an org admin lists that member's writing styles.
 
 Use this before find_writing_style_profile when the user asks to
 generate "in the style of `<person>`": if the person is already in
@@ -181,7 +183,7 @@ Each WritingStyleEntry has:
 
 | Input | Type | Default | Description |
 |---|---|---|---|
-| `member_user_id` | `string \| null` | null | Org admins only: act on the account of this member of your organisation (`user_record_id` from list_org_members), exactly as if you had switched to that account in the app. Leave empty for your own account. |
+| `member_user_id` | `string` | null | Org admins only: act on this member's account (`user_record_id` from list_org_members), as if switched to it in the app. Omit for your own account. |
 
 
 ---
@@ -218,14 +220,11 @@ is false, the import will still succeed but the import endpoint will
 return `status: 'scraping_in_progress'` until enough posts are
 ingested (~2 minutes).
 
-The catalog is the same for every account; member_user_id is accepted
-so the whole style flow can run for an org member.
-
 | Input | Type | Default | Description |
 |---|---|---|---|
 | `query` | `string` | — | Query |
 | `limit` | `integer` | `10` | Limit |
-| `member_user_id` | `string \| null` | null | Org admins only: act on the account of this member of your organisation (`user_record_id` from list_org_members), exactly as if you had switched to that account in the app. Leave empty for your own account. |
+| `member_user_id` | `string` | null | Org admins only: act on this member's account (`user_record_id` from list_org_members), as if switched to it in the app. Omit for your own account. The catalog is the same for every account: accepted so the whole style flow can run for a member. |
 
 
 ---
@@ -233,8 +232,7 @@ so the whole style flow can run for an org member.
 ## add_writing_style_profile
 
 Attach a LinkedIn profile to the user's account as a writing-style
-candidate, scraping its posts if needed. With member_user_id, an org
-admin adds it to that member's writing styles (their plan quota).
+candidate, scraping its posts if needed.
 
 Idempotent: re-calling with the same URL is safe. Use this exact
 re-call pattern when the response indicates scraping is in progress.
@@ -271,7 +269,7 @@ profile_url, valid_posts. Use the returned `urn` as
 | Input | Type | Default | Description |
 |---|---|---|---|
 | `profile_url` | `string` | — | Profile Url |
-| `member_user_id` | `string \| null` | null | Org admins only: act on the account of this member of your organisation (`user_record_id` from list_org_members), exactly as if you had switched to that account in the app. Leave empty for your own account. |
+| `member_user_id` | `string` | null | Org admins only: act on this member's account (`user_record_id` from list_org_members), as if switched to it in the app. Omit for your own account. The profile is added to that member's writing styles, under their plan quota. |
 
 
 ---
@@ -294,15 +292,12 @@ Each row carries `media_type` (`image`, `video`, `document` or
 preview frame or the document's cover, as a URL you can embed. It is
 null for text posts and when no preview image exists.
 
-With `member_user_id`, the posts of that account of your organisation,
-in the same shape.
-
 | Input | Type | Default | Description |
 |---|---|---|---|
 | `status` | `string` | `'scheduled'` | Status |
 | `limit` | `integer` | `20` | Limit |
 | `offset` | `integer` | `0` | Offset |
-| `member_user_id` | `string \| null` | null | Org admins only: act on the account of this member of your organisation (`user_record_id` from list_org_members), exactly as if you had switched to that account in the app. Leave empty for your own account. |
+| `member_user_id` | `string` | null | Org admins only: act on this member's account (`user_record_id` from list_org_members), as if switched to it in the app. Omit for your own account. |
 
 
 ---
@@ -314,12 +309,6 @@ Fetch the full record for a single MagicPost owned by the user.
 Besides the raw media list (`file_post`), the record carries
 `media_type` and `thumbnail_url`, with the same meaning as in
 `list_my_posts`.
-
-It reads the posts of ONE account: yours by default. A post of an org
-teammate returns `error_type='post_not_found'` (404) unless you pass
-that teammate's `member_user_id` (org admins only). So if the post id
-came from `list_org_member_posts` or relates to another member, pass
-that member's `member_user_id`.
 
 `post_id` MUST be the MagicPost UUID (e.g.
 "16a63f9a-0e13-43eb-b502-..."). It is NOT the LinkedIn share URN
@@ -348,7 +337,7 @@ Besides the raw `post` record, the response carries:
 | Input | Type | Default | Description |
 |---|---|---|---|
 | `post_id` | `string` | — | Post Id |
-| `member_user_id` | `string \| null` | null | Org admins only: act on the account of this member of your organisation (`user_record_id` from list_org_members), exactly as if you had switched to that account in the app. Leave empty for your own account. |
+| `member_user_id` | `string` | null | Org admins only: act on this member's account (`user_record_id` from list_org_members), as if switched to it in the app. Omit for your own account. Required to read a post of that member (for example an id from list_org_member_posts): without it only your own posts are read and theirs answers `post_not_found` (404). |
 
 
 ---
@@ -392,19 +381,14 @@ holds a mention that will not become a tag, the response carries a
 `mentions` report (`untagged_at_names`, `malformed_urns`,
 `will_not_tag`): fix the text before scheduling.
 
-To edit a post owned by an organisation member (e.g. a draft made with
-`create_member_post`), pass its `post_id` AND that `member_user_id`.
-Only org super_admins can do this; to CREATE a member's draft, use
-`create_member_post`.
-
 | Input | Type | Default | Description |
 |---|---|---|---|
-| `content` | `string \| null` | null | Content |
-| `post_id` | `string \| null` | null | Post Id |
-| `member_user_id` | `string \| null` | null | Member User Id |
-| `poll` | `object \| null` | null |  |
+| `content` | `string` | null | Content |
+| `post_id` | `string` | null | Post Id |
+| `member_user_id` | `string` | null | Org admins only: act on this member's account (`user_record_id` from list_org_members), as if switched to it in the app. Omit for your own account. Pass it with the `post_id` of that member's post to edit it. To CREATE a member's draft, use create_member_post. |
+| `poll` | `object` | null | A LinkedIn poll, same limits as the app's poll editor. |
 | `remove_poll` | `boolean` | `false` | Remove Poll |
-| `show_link_preview` | `boolean \| null` | null | Show Link Preview |
+| `show_link_preview` | `boolean` | null | Show Link Preview |
 
 
 ---
@@ -439,20 +423,16 @@ a PDF (carousel) must be the only media. Set replace_existing=True
 instead to replace ALL existing attachments with this file. To remove
 one attachment, use remove_post_media.
 
-For a draft created by `create_member_post`, pass the same
-`member_user_id` here, then use `schedule_member_post`. Only an org
-super_admin can attach media to a member-owned draft.
-
 | Input | Type | Default | Description |
 |---|---|---|---|
 | `post_id` | `string` | — | Post Id |
 | `media_file` | `object` | null | Media File |
-| `alt_text` | `string \| null` | null | Alt Text |
-| `member_user_id` | `string \| null` | null | Member User Id |
+| `alt_text` | `string` | null | Alt Text |
+| `member_user_id` | `string` | null | Org admins only: act on this member's account (`user_record_id` from list_org_members), as if switched to it in the app. Omit for your own account. For a draft made with create_member_post, pass the same id here, then use schedule_member_post. |
 | `replace_existing` | `boolean` | `false` | Replace Existing |
-| `title` | `string \| null` | null | Title |
+| `title` | `string` | null | Title |
 | `append` | `boolean` | `false` | Append |
-| `media_url` | `string \| null` | null | Media Url |
+| `media_url` | `string` | null | Media Url |
 
 
 ---
@@ -473,8 +453,6 @@ In claude.ai, the code sandbox usually cannot reach the upload host
 retry and do not fall back to attach_media_to_post: follow
 `if_upload_blocked` in the response.
 
-For a member-owned draft, pass the `member_user_id` returned by
-`list_org_members` and pass it again when completing the upload.
 To replace all existing attachments, pass replace_existing=True here
 AND when completing. Existing media stays until completion succeeds.
 To add an image next to the post's images (up to 9), pass append=True
@@ -484,8 +462,8 @@ here AND when completing; upload images one after the other.
 |---|---|---|---|
 | `post_id` | `string` | — | Post Id |
 | `file_name` | `string` | — | File Name |
-| `mime_type` | `string \| null` | null | Mime Type |
-| `member_user_id` | `string \| null` | null | Member User Id |
+| `mime_type` | `string` | null | Mime Type |
+| `member_user_id` | `string` | null | Org admins only: act on this member's account (`user_record_id` from list_org_members), as if switched to it in the app. Omit for your own account. Pass it again when completing the upload. |
 | `replace_existing` | `boolean` | `false` | Replace Existing |
 | `append` | `boolean` | `false` | Append |
 
@@ -496,8 +474,7 @@ here AND when completing; upload images one after the other.
 
 Validate an uploaded local file and attach it to its draft.
 
-Call this after prepare_post_media_upload and the HTTPS upload. For a
-member-owned draft, pass the same `member_user_id` used to prepare it.
+Call this after prepare_post_media_upload and the HTTPS upload.
 Re-calling a successfully completed upload is safe.
 Use replace_existing=True to replace all attachments, keeping the post
 and its comments, or append=True (same value as when preparing) to
@@ -508,10 +485,10 @@ title: max 400.
 |---|---|---|---|
 | `post_id` | `string` | — | Post Id |
 | `upload_id` | `string` | — | Upload Id |
-| `alt_text` | `string \| null` | null | Alt Text |
-| `member_user_id` | `string \| null` | null | Member User Id |
+| `alt_text` | `string` | null | Alt Text |
+| `member_user_id` | `string` | null | Org admins only: act on this member's account (`user_record_id` from list_org_members), as if switched to it in the app. Omit for your own account. Same value as when preparing the upload. |
 | `replace_existing` | `boolean` | `false` | Replace Existing |
-| `title` | `string \| null` | null | Title |
+| `title` | `string` | null | Title |
 | `append` | `boolean` | `false` | Append |
 
 
@@ -538,9 +515,9 @@ To generate for several images, call once per image.
 |---|---|---|---|
 | `post_id` | `string` | — | Post Id |
 | `media_url` | `string` | — | Media Url |
-| `alt_text` | `string \| null` | null | Alt Text |
-| `title` | `string \| null` | null | Title |
-| `member_user_id` | `string \| null` | null | Member User Id |
+| `alt_text` | `string` | null | Alt Text |
+| `title` | `string` | null | Title |
+| `member_user_id` | `string` | null | Org admins only: act on this member's account (`user_record_id` from list_org_members), as if switched to it in the app. Omit for your own account. |
 | `generate_alt_text` | `boolean` | `false` | Generate Alt Text |
 
 
@@ -553,15 +530,14 @@ file_post; never invent it), or all of them with remove_all=True.
 
 The text, the post ID and its scheduled comments stay. Cancel any
 schedule first; published posts cannot change. To swap a file, prefer
-attach_media_to_post with replace_existing=True. For a member-owned
-draft, pass that `member_user_id` (org super_admins only).
+attach_media_to_post with replace_existing=True.
 
 | Input | Type | Default | Description |
 |---|---|---|---|
 | `post_id` | `string` | — | Post Id |
-| `media_url` | `string \| null` | null | Media Url |
+| `media_url` | `string` | null | Media Url |
 | `remove_all` | `boolean` | `false` | Remove All |
-| `member_user_id` | `string \| null` | null | Member User Id |
+| `member_user_id` | `string` | null | Org admins only: act on this member's account (`user_record_id` from list_org_members), as if switched to it in the app. Omit for your own account. |
 
 
 ---
@@ -584,15 +560,13 @@ get_post to check `file_post`.
   to 9 images in total; a video or a PDF must be alone on a post.
 - mode "replace": the first file dropped replaces all existing media.
 The link works for 30 minutes and only for this draft (unscheduled,
-unpublished, without a poll). For a draft of an account of your
-organisation, pass its `member_user_id`: the files go to that account's
-media library.
+unpublished, without a poll).
 
 | Input | Type | Default | Description |
 |---|---|---|---|
 | `post_id` | `string` | — | Post Id |
 | `mode` | `string` | `'add'` | Mode |
-| `member_user_id` | `string \| null` | null | Org admins only: act on the account of this member of your organisation (`user_record_id` from list_org_members), exactly as if you had switched to that account in the app. Leave empty for your own account. |
+| `member_user_id` | `string` | null | Org admins only: act on this member's account (`user_record_id` from list_org_members), as if switched to it in the app. Omit for your own account. The files go to that member's media library. |
 
 
 ---
@@ -622,20 +596,19 @@ never block. `title` is shown on a PDF carousel post.
 
 replace_existing=True swaps the draft's current media. append=True adds a
 single image after the draft's images (up to 9); a carousel must be the
-only media. For a draft of an account of your organisation, pass its
-`member_user_id`: the file goes to that account's media library.
+only media.
 
 | Input | Type | Default | Description |
 |---|---|---|---|
 | `post_id` | `string` | — | Post Id |
 | `slides` | `array` | — | Slides |
 | `format` | `string` | `'portrait'` | Format |
-| `title` | `string \| null` | null | Title |
-| `alt_text` | `string \| null` | null | Alt Text |
+| `title` | `string` | null | Title |
+| `alt_text` | `string` | null | Alt Text |
 | `replace_existing` | `boolean` | `false` | Replace Existing |
 | `append` | `boolean` | `false` | Append |
 | `ignore_layout_warnings` | `boolean` | `false` | Ignore Layout Warnings |
-| `member_user_id` | `string \| null` | null | Org admins only: act on the account of this member of your organisation (`user_record_id` from list_org_members), exactly as if you had switched to that account in the app. Leave empty for your own account. |
+| `member_user_id` | `string` | null | Org admins only: act on this member's account (`user_record_id` from list_org_members), as if switched to it in the app. Omit for your own account. The file goes to that member's media library. |
 
 
 ---
@@ -662,20 +635,17 @@ manage_notebook_idea).
   `create_missing=true` to create it, only when the user asked for a
   new label. Returns `post_label_ids`, the post's labels after the call.
 
-With `member_user_id`, the labels of that account of your organisation
-(each account has its own labels).
-
 | Input | Type | Default | Description |
 |---|---|---|---|
 | `action` | `string` | — | Action |
-| `label_id` | `string \| null` | null | Label Id |
-| `name` | `string \| null` | null | Name |
-| `color` | `string \| null` | null | Color |
-| `post_id` | `string \| null` | null | Post Id |
-| `add` | `array \| null` | null | Add |
-| `remove` | `array \| null` | null | Remove |
+| `label_id` | `string` | null | Label Id |
+| `name` | `string` | null | Name |
+| `color` | `string` | null | Color |
+| `post_id` | `string` | null | Post Id |
+| `add` | `array` | null | Add |
+| `remove` | `array` | null | Remove |
 | `create_missing` | `boolean` | `false` | Create Missing |
-| `member_user_id` | `string \| null` | null | Org admins only: act on the account of this member of your organisation (`user_record_id` from list_org_members), exactly as if you had switched to that account in the app. Leave empty for your own account. |
+| `member_user_id` | `string` | null | Org admins only: act on this member's account (`user_record_id` from list_org_members), as if switched to it in the app. Omit for your own account. Each account has its own labels. |
 
 
 ---
@@ -698,10 +668,6 @@ comments.
 - Without `post_id`: the posts that have comments, with counts
   (`open_client_threads`, `open_own_notes`, `unread`), most to handle
   first. Read `get_post` or `get_calendar` for their text and date.
-- `member_user_id` (from list_org_members, org admins only): the same
-  for a post or the posts of an account of your organisation. The
-  discussion of a post already published on LinkedIn can be read
-  (useful for a handover), not changed.
 - `team=true` (org admins only, no `post_id`): one line per account you
   manage, with `badge`, the number shown next to it in the app.
 
@@ -710,8 +676,8 @@ action "mark_read".
 
 | Input | Type | Default | Description |
 |---|---|---|---|
-| `post_id` | `string \| null` | null | Post Id |
-| `member_user_id` | `string \| null` | null | Member User Id |
+| `post_id` | `string` | null | Post Id |
+| `member_user_id` | `string` | null | Org admins only: act on this member's account (`user_record_id` from list_org_members), as if switched to it in the app. Omit for your own account. The discussion of a post already published on LinkedIn can be read (useful for a handover), not changed. |
 | `team` | `boolean` | `false` | Team |
 
 
@@ -741,20 +707,15 @@ LinkedIn comments. Your comments are signed with your name.
   published until approved. On an account of your organisation, this is
   the app's validation switch of the team calendar.
 
-`member_user_id` (from list_org_members, org admins only): act on a
-post of that account. A restricted admin only reaches the accounts in
-their scope, and some admin levels are read-only on some accounts
-(`error_type='forbidden'`).
-
 | Input | Type | Default | Description |
 |---|---|---|---|
 | `action` | `string` | — | Action |
 | `post_id` | `string` | — | Post Id |
-| `member_user_id` | `string \| null` | null | Member User Id |
-| `content` | `string \| null` | null | Content |
-| `comment_id` | `string \| null` | null | Comment Id |
-| `parent_id` | `string \| null` | null | Parent Id |
-| `quote` | `string \| null` | null | Quote |
+| `member_user_id` | `string` | null | Org admins only: act on this member's account (`user_record_id` from list_org_members), as if switched to it in the app. Omit for your own account. A restricted admin only reaches the accounts in their scope, and some admin levels are read-only on some accounts (`error_type='forbidden'`). |
+| `content` | `string` | null | Content |
+| `comment_id` | `string` | null | Comment Id |
+| `parent_id` | `string` | null | Parent Id |
+| `quote` | `string` | null | Quote |
 | `occurrence` | `integer` | `0` | Occurrence |
 
 
@@ -777,10 +738,6 @@ get_calendar or get_post).
 If LinkedIn answers `token_expired`, ask the user to reconnect
 LinkedIn in MagicPost, then retry.
 
-With `member_user_id`, a post of that account of your organisation,
-deleted from LinkedIn with that account's connection (only that member
-can reconnect it).
-
 Returns
 -------
 `{success, post_id, deleted_from_linkedin, deleted_from_magicpost}`.
@@ -789,7 +746,7 @@ Returns
 |---|---|---|---|
 | `post_id` | `string` | — | Post Id |
 | `confirm_delete_on_linkedin` | `boolean` | `false` | Confirm Delete On Linkedin |
-| `member_user_id` | `string \| null` | null | Org admins only: act on the account of this member of your organisation (`user_record_id` from list_org_members), exactly as if you had switched to that account in the app. Leave empty for your own account. |
+| `member_user_id` | `string` | null | Org admins only: act on this member's account (`user_record_id` from list_org_members), as if switched to it in the app. Omit for your own account. A published post is deleted from LinkedIn with that member's connection, which only the member can reconnect. |
 
 
 ---
@@ -808,9 +765,6 @@ Use this when the user asks things like:
 The draft is not scheduled: edit it with create_or_update_post, then
 schedule it with schedule_post.
 
-With `member_user_id`, a post of that account of your organisation is
-copied into a new draft of the same account.
-
 Returns
 -------
 `{success, post_id (the new draft), source_post_id, has_poll,
@@ -820,7 +774,7 @@ media_copied}`.
 |---|---|---|---|
 | `post_id` | `string` | — | Post Id |
 | `include_media` | `boolean` | `true` | Include Media |
-| `member_user_id` | `string \| null` | null | Org admins only: act on the account of this member of your organisation (`user_record_id` from list_org_members), exactly as if you had switched to that account in the app. Leave empty for your own account. |
+| `member_user_id` | `string` | null | Org admins only: act on this member's account (`user_record_id` from list_org_members), as if switched to it in the app. Omit for your own account. The copy is a new draft of the same account. |
 
 
 ---
@@ -848,20 +802,17 @@ usage_count, folder_id, created_at}]}`. Show `thumbnail_url` (or
 `attach_library_media_to_post` with its `asset_id`, or
 `manage_media_asset` to change it.
 
-With member_user_id, lists that member's own library (pass the same
-member_user_id to attach_library_media_to_post).
-
 | Input | Type | Default | Description |
 |---|---|---|---|
-| `query` | `string \| null` | null | Query |
-| `asset_type` | `string \| null` | null | Asset Type |
-| `source` | `string \| null` | null | Source |
-| `favorite` | `boolean \| null` | null | Favorite |
-| `folder_id` | `string \| null` | null | Folder Id |
+| `query` | `string` | null | Query |
+| `asset_type` | `string` | null | Asset Type |
+| `source` | `string` | null | Source |
+| `favorite` | `boolean` | null | Favorite |
+| `folder_id` | `string` | null | Folder Id |
 | `sort` | `string` | `'recent'` | Sort |
 | `limit` | `integer` | `20` | Limit |
 | `offset` | `integer` | `0` | Offset |
-| `member_user_id` | `string \| null` | null | Org admins only: act on the account of this member of your organisation (`user_record_id` from list_org_members), exactly as if you had switched to that account in the app. Leave empty for your own account. |
+| `member_user_id` | `string` | null | Org admins only: act on this member's account (`user_record_id` from list_org_members), as if switched to it in the app. Omit for your own account. Pass the same member_user_id to attach_library_media_to_post. |
 
 
 ---
@@ -885,11 +836,9 @@ asset_count, created_at}], settings: {default_client_visible}}`.
 refused at that mark. Use a `folder_id` with list_media_library or
 manage_media_asset, and manage_media_folder to change folders.
 
-With member_user_id, the folders, counts and storage are that member's.
-
 | Input | Type | Default | Description |
 |---|---|---|---|
-| `member_user_id` | `string \| null` | null | Org admins only: act on the account of this member of your organisation (`user_record_id` from list_org_members), exactly as if you had switched to that account in the app. Leave empty for your own account. |
+| `member_user_id` | `string` | null | Org admins only: act on this member's account (`user_record_id` from list_org_members), as if switched to it in the app. Omit for your own account. |
 
 
 ---
@@ -908,16 +857,14 @@ Create, rename or delete a folder of the user's media library.
   user how many media will go, and only after their explicit yes call
   again with `confirm_delete_media=true`.
 
-With member_user_id, acts on the folders of that member's library.
-
 | Input | Type | Default | Description |
 |---|---|---|---|
 | `action` | `string` | — | Action |
-| `folder_id` | `string \| null` | null | Folder Id |
-| `name` | `string \| null` | null | Name |
+| `folder_id` | `string` | null | Folder Id |
+| `name` | `string` | null | Name |
 | `delete_media` | `boolean` | `false` | Delete Media |
 | `confirm_delete_media` | `boolean` | `false` | Confirm Delete Media |
-| `member_user_id` | `string \| null` | null | Org admins only: act on the account of this member of your organisation (`user_record_id` from list_org_members), exactly as if you had switched to that account in the app. Leave empty for your own account. |
+| `member_user_id` | `string` | null | Org admins only: act on this member's account (`user_record_id` from list_org_members), as if switched to it in the app. Omit for your own account. |
 
 
 ---
@@ -965,22 +912,22 @@ To put a library media in a post, use attach_library_media_to_post.
 | Input | Type | Default | Description |
 |---|---|---|---|
 | `action` | `string` | — | Action |
-| `asset_id` | `string \| null` | null | Asset Id |
-| `asset_ids` | `array \| null` | null | Asset Ids |
-| `media_url` | `string \| null` | null | Media Url |
+| `asset_id` | `string` | null | Asset Id |
+| `asset_ids` | `array` | null | Asset Ids |
+| `media_url` | `string` | null | Media Url |
 | `media_file` | `object` | null | Media File |
-| `file_name` | `string \| null` | null | File Name |
-| `mime_type` | `string \| null` | null | Mime Type |
-| `content_hash` | `string \| null` | null | Content Hash |
-| `upload_id` | `string \| null` | null | Upload Id |
-| `name` | `string \| null` | null | Name |
-| `folder_id` | `string \| null` | null | Folder Id |
+| `file_name` | `string` | null | File Name |
+| `mime_type` | `string` | null | Mime Type |
+| `content_hash` | `string` | null | Content Hash |
+| `upload_id` | `string` | null | Upload Id |
+| `name` | `string` | null | Name |
+| `folder_id` | `string` | null | Folder Id |
 | `remove_from_folder` | `boolean` | `false` | Remove From Folder |
-| `is_favorite` | `boolean \| null` | null | Is Favorite |
-| `is_profile_photo` | `boolean \| null` | null | Is Profile Photo |
-| `client_visible` | `boolean \| null` | null | Client Visible |
-| `member_user_id` | `string \| null` | null | Org admins only, an id from list_org_members. With send_to_client: the client account that receives the copies. With any other action: act on that member's library instead of your own, as if you had switched to that account in the app. Leave empty for your own library. |
-| `default_client_visible` | `boolean \| null` | null | Default Client Visible |
+| `is_favorite` | `boolean` | null | Is Favorite |
+| `is_profile_photo` | `boolean` | null | Is Profile Photo |
+| `client_visible` | `boolean` | null | Client Visible |
+| `member_user_id` | `string` | null | Org admins only, an id from list_org_members. With send_to_client: the client account that receives the copies. With any other action: act on that member's library instead of your own, as if you had switched to that account in the app. Leave empty for your own library. |
+| `default_client_visible` | `boolean` | null | Default Client Visible |
 
 
 ---
@@ -1004,17 +951,14 @@ Returns
 -------
 `{success, post_id, media, media_count, asset_id}`.
 
-With member_user_id, both the media and the draft must be that
-member's (list_media_library with the same member_user_id).
-
 | Input | Type | Default | Description |
 |---|---|---|---|
 | `post_id` | `string` | — | Post Id |
 | `asset_id` | `string` | — | Asset Id |
-| `alt_text` | `string \| null` | null | Alt Text |
+| `alt_text` | `string` | null | Alt Text |
 | `replace_existing` | `boolean` | `false` | Replace Existing |
 | `append` | `boolean` | `false` | Append |
-| `member_user_id` | `string \| null` | null | Org admins only: act on the account of this member of your organisation (`user_record_id` from list_org_members), exactly as if you had switched to that account in the app. Leave empty for your own account. |
+| `member_user_id` | `string` | null | Org admins only: act on this member's account (`user_record_id` from list_org_members), as if switched to it in the app. Omit for your own account. Both the media and the draft must be that member's (list_media_library with the same member_user_id). |
 
 
 ---
@@ -1043,13 +987,10 @@ the name as plain text and tell the user why (`warning`).
 To tag the people the user usually tags (their team), call
 list_recent_mentions first: no search needed.
 
-Writing the post of an account of your organisation: pass its
-`member_user_id` (`tagged_before` then reads that account's mentions).
-
 | Input | Type | Default | Description |
 |---|---|---|---|
 | `query` | `string` | — | Query |
-| `member_user_id` | `string \| null` | null | Org admins only: act on the account of this member of your organisation (`user_record_id` from list_org_members), exactly as if you had switched to that account in the app. Leave empty for your own account. |
+| `member_user_id` | `string` | null | Org admins only: act on this member's account (`user_record_id` from list_org_members), as if switched to it in the app. Omit for your own account. Pass it when writing that member's post: `tagged_before` then reads their mentions. |
 
 
 ---
@@ -1063,13 +1004,12 @@ company page and regular partners.
 Each item has the same shape as search_mentions results, with a
 ready-to-paste `mention`. Use it when the user says "tag the team" or
 names someone they tag often; fall back to search_mentions for anyone
-missing. With `member_user_id`, the mentions of that account of your
-organisation.
+missing.
 
 | Input | Type | Default | Description |
 |---|---|---|---|
 | `limit` | `integer` | `30` | Limit |
-| `member_user_id` | `string \| null` | null | Org admins only: act on the account of this member of your organisation (`user_record_id` from list_org_members), exactly as if you had switched to that account in the app. Leave empty for your own account. |
+| `member_user_id` | `string` | null | Org admins only: act on this member's account (`user_record_id` from list_org_members), as if switched to it in the app. Omit for your own account. |
 
 
 ---
@@ -1101,16 +1041,12 @@ scheduled comments (do not retry). The call is not retried
 automatically: on a network error, check get_post before calling
 again, or the comment may be armed twice.
 
-For a post owned by an organisation member, pass that
-`member_user_id`: the comment is then published by the MEMBER's
-LinkedIn account. Only org super_admins can do this.
-
 | Input | Type | Default | Description |
 |---|---|---|---|
 | `post_id` | `string` | — | Post Id |
 | `text` | `string` | — | Text |
 | `minutes_after` | `integer` | `0` | Minutes After |
-| `member_user_id` | `string \| null` | null | Member User Id |
+| `member_user_id` | `string` | null | Org admins only: act on this member's account (`user_record_id` from list_org_members), as if switched to it in the app. Omit for your own account. The comment is then published by the MEMBER's LinkedIn account. |
 
 
 ---
@@ -1120,14 +1056,12 @@ LinkedIn account. Only org super_admins can do this.
 Remove a comment armed with schedule_post_comment, before it is
 published on LinkedIn. A comment already published (or being
 published) cannot be removed here: `comment_already_published` (409).
-For a member-owned post, pass the same `member_user_id` (org
-super_admins only).
 
 | Input | Type | Default | Description |
 |---|---|---|---|
 | `post_id` | `string` | — | Post Id |
 | `comment_id` | `string` | — | Comment Id |
-| `member_user_id` | `string \| null` | null | Member User Id |
+| `member_user_id` | `string` | null | Org admins only: act on this member's account (`user_record_id` from list_org_members), as if switched to it in the app. Omit for your own account. |
 
 
 ---
@@ -1153,14 +1087,11 @@ minute, then call this tool again.
 `synced: false` means the post is not imported yet (just published):
 retry later.
 
-For a post of an organisation member, pass that `member_user_id`
-(org super_admins only).
-
 | Input | Type | Default | Description |
 |---|---|---|---|
-| `post_id` | `string \| null` | null | Post Id |
-| `linkedin_activity_id` | `string \| null` | null | Linkedin Activity Id |
-| `member_user_id` | `string \| null` | null | Member User Id |
+| `post_id` | `string` | null | Post Id |
+| `linkedin_activity_id` | `string` | null | Linkedin Activity Id |
+| `member_user_id` | `string` | null | Org admins only: act on this member's account (`user_record_id` from list_org_members), as if switched to it in the app. Omit for your own account. |
 
 
 ---
@@ -1180,14 +1111,11 @@ Returns `status: running` right away. Wait about a minute (longer for
 posts with hundreds of comments), then call list_received_comments:
 `last_sync.state` tells whether the sync is done.
 
-For a post of an organisation member, pass that `member_user_id`
-(org super_admins only): the sync uses the MEMBER's daily quota.
-
 | Input | Type | Default | Description |
 |---|---|---|---|
-| `post_id` | `string \| null` | null | Post Id |
-| `linkedin_activity_id` | `string \| null` | null | Linkedin Activity Id |
-| `member_user_id` | `string \| null` | null | Member User Id |
+| `post_id` | `string` | null | Post Id |
+| `linkedin_activity_id` | `string` | null | Linkedin Activity Id |
+| `member_user_id` | `string` | null | Org admins only: act on this member's account (`user_record_id` from list_org_members), as if switched to it in the app. Omit for your own account. The sync uses the MEMBER's daily quota. |
 
 
 ---
@@ -1226,18 +1154,15 @@ comment, they are spread over the next minutes. If the reaction is
 refused, the reply is not queued. list_engagement_queue shows what is
 pending, sent or failed; cancel_queued_engagement cancels it.
 
-With member_user_id, the reply and the reaction come from that
-member's LinkedIn account, under the member's post and reply quota.
-
 | Input | Type | Default | Description |
 |---|---|---|---|
 | `comment_id` | `string` | — | Comment Id |
-| `text` | `string \| null` | null | Text |
-| `post_id` | `string \| null` | null | Post Id |
-| `linkedin_activity_id` | `string \| null` | null | Linkedin Activity Id |
-| `reaction_type` | `string \| null` | null | Reaction Type |
+| `text` | `string` | null | Text |
+| `post_id` | `string` | null | Post Id |
+| `linkedin_activity_id` | `string` | null | Linkedin Activity Id |
+| `reaction_type` | `string` | null | Reaction Type |
 | `remove_reaction` | `boolean` | `false` | Remove Reaction |
-| `member_user_id` | `string \| null` | null | Org admins only: act on the account of this member of your organisation (`user_record_id` from list_org_members), exactly as if you had switched to that account in the app. Leave empty for your own account. |
+| `member_user_id` | `string` | null | Org admins only: act on this member's account (`user_record_id` from list_org_members), as if switched to it in the app. Omit for your own account. The reply and the reaction come from that member's LinkedIn account, under the member's post and reply quota. |
 
 
 ---
@@ -1274,16 +1199,13 @@ could not go out within 12 hours (daily limit reached) is NOT queued
 and the response says so (`engagement_not_queued`): tell the user, do
 not retry.
 
-With member_user_id, the action goes out from that member's LinkedIn
-account: the member's plan, trial caps and limits apply.
-
 | Input | Type | Default | Description |
 |---|---|---|---|
-| `post_url` | `string \| null` | null | Post Url |
-| `post_urn` | `string \| null` | null | Post Urn |
-| `comment` | `string \| null` | null | Comment |
-| `reaction_type` | `string \| null` | null | Reaction Type |
-| `member_user_id` | `string \| null` | null | Org admins only: act on the account of this member of your organisation (`user_record_id` from list_org_members), exactly as if you had switched to that account in the app. Leave empty for your own account. |
+| `post_url` | `string` | null | Post Url |
+| `post_urn` | `string` | null | Post Urn |
+| `comment` | `string` | null | Comment |
+| `reaction_type` | `string` | null | Reaction Type |
+| `member_user_id` | `string` | null | Org admins only: act on this member's account (`user_record_id` from list_org_members), as if switched to it in the app. Omit for your own account. The action goes out from that member's LinkedIn account: the member's plan, trial caps and limits apply. |
 
 
 ---
@@ -1302,12 +1224,11 @@ separate comment quotas: `comments` (on other people's posts, 100 per
 24 h) and `replies` (to comments on the user's own posts, 200). Use it
 when the user asks "what's left today?" or before queuing a batch.
 Report failed items to the user: they will not be retried.
-With member_user_id: that member's queue and limits.
 
 | Input | Type | Default | Description |
 |---|---|---|---|
-| `status` | `string \| null` | null | Status |
-| `member_user_id` | `string \| null` | null | Org admins only: act on the account of this member of your organisation (`user_record_id` from list_org_members), exactly as if you had switched to that account in the app. Leave empty for your own account. |
+| `status` | `string` | null | Status |
+| `member_user_id` | `string` | null | Org admins only: act on this member's account (`user_record_id` from list_org_members), as if switched to it in the app. Omit for your own account. |
 
 
 ---
@@ -1318,13 +1239,12 @@ Cancel an action of the engagement queue before it goes out (its
 `id` from engage_with_post, reply_to_comment or list_engagement_queue).
 An action already sent cannot be cancelled here
 (`queued_action_not_cancellable`). Cancelling a comment does not
-cancel the reaction queued with it: cancel both if needed. For an
-action queued for an organisation member, pass the same member_user_id.
+cancel the reaction queued with it: cancel both if needed.
 
 | Input | Type | Default | Description |
 |---|---|---|---|
 | `queued_id` | `string` | — | Queued Id |
-| `member_user_id` | `string \| null` | null | Org admins only: act on the account of this member of your organisation (`user_record_id` from list_org_members), exactly as if you had switched to that account in the app. Leave empty for your own account. |
+| `member_user_id` | `string` | null | Org admins only: act on this member's account (`user_record_id` from list_org_members), as if switched to it in the app. Omit for your own account. Same value as when the action was queued. |
 
 
 ---
@@ -1370,22 +1290,20 @@ visit it, so reading it regularly keeps the feed fresh.
 Paginate with offset / `next_offset`. `counts` gives the totals of
 the selection (total, to_engage, engaged). Requires the Engagement
 feature of the user's plan (`engagement_forbidden`: do not retry).
-With member_user_id: that member's feed (it counts as the member's
-visit).
 
 | Input | Type | Default | Description |
 |---|---|---|---|
 | `view` | `string` | `'latest'` | View |
-| `list_id` | `string \| null` | null | List Id |
-| `profile_id` | `string \| null` | null | Profile Id |
+| `list_id` | `string` | null | List Id |
+| `profile_id` | `string` | null | Profile Id |
 | `status` | `string` | `'all'` | Status |
 | `time_range` | `string` | `'all'` | Time Range |
 | `sort` | `string` | `'recent'` | Sort |
 | `include_hidden` | `boolean` | `false` | Include Hidden |
 | `limit` | `integer` | `20` | Limit |
 | `offset` | `integer` | `0` | Offset |
-| `timezone` | `string \| null` | null | Timezone |
-| `member_user_id` | `string \| null` | null | Org admins only: act on the account of this member of your organisation (`user_record_id` from list_org_members), exactly as if you had switched to that account in the app. Leave empty for your own account. |
+| `timezone` | `string` | null | Timezone |
+| `member_user_id` | `string` | null | Org admins only: act on this member's account (`user_record_id` from list_org_members), as if switched to it in the app. Omit for your own account. Reading the feed counts as that member's visit. |
 
 
 ---
@@ -1411,7 +1329,6 @@ Use it for "how am I doing on my goals?", "who did I comment on
 this week?" or to avoid commenting twice on the same author. Change
 the goals with manage_engagement_feed. Requires the Engagement feature
 of the user's plan (`engagement_forbidden`: do not retry).
-With member_user_id: that member's goals and history.
 
 | Input | Type | Default | Description |
 |---|---|---|---|
@@ -1419,11 +1336,11 @@ With member_user_id: that member's goals and history.
 | `days` | `integer` | `30` | Days |
 | `top_profiles` | `integer` | `5` | Top Profiles |
 | `kind` | `string` | `'all'` | Kind |
-| `from_date` | `string \| null` | null | From Date |
-| `to_date` | `string \| null` | null | To Date |
+| `from_date` | `string` | null | From Date |
+| `to_date` | `string` | null | To Date |
 | `limit` | `integer` | `50` | Limit |
-| `timezone` | `string \| null` | null | Timezone |
-| `member_user_id` | `string \| null` | null | Org admins only: act on the account of this member of your organisation (`user_record_id` from list_org_members), exactly as if you had switched to that account in the app. Leave empty for your own account. |
+| `timezone` | `string` | null | Timezone |
+| `member_user_id` | `string` | null | Org admins only: act on this member's account (`user_record_id` from list_org_members), as if switched to it in the app. Omit for your own account. |
 
 
 ---
@@ -1449,19 +1366,18 @@ Actions:
 
 Ask the user before changing their goals. Requires the Engagement
 feature of the user's plan (`engagement_forbidden`: do not retry).
-With member_user_id: that member's screen.
 
 | Input | Type | Default | Description |
 |---|---|---|---|
 | `action` | `string` | — | Action |
-| `goal_period` | `string \| null` | null | Goal Period |
-| `likes_goal` | `integer \| null` | null | Likes Goal |
-| `comments_goal` | `integer \| null` | null | Comments Goal |
-| `engaged_criterion` | `string \| null` | null | Engaged Criterion |
-| `post_id` | `string \| null` | null | Post Id |
-| `list_id` | `string \| null` | null | List Id |
-| `post_urn` | `string \| null` | null | Post Urn |
-| `member_user_id` | `string \| null` | null | Org admins only: act on the account of this member of your organisation (`user_record_id` from list_org_members), exactly as if you had switched to that account in the app. Leave empty for your own account. |
+| `goal_period` | `string` | null | Goal Period |
+| `likes_goal` | `integer` | null | Likes Goal |
+| `comments_goal` | `integer` | null | Comments Goal |
+| `engaged_criterion` | `string` | null | Engaged Criterion |
+| `post_id` | `string` | null | Post Id |
+| `list_id` | `string` | null | List Id |
+| `post_urn` | `string` | null | Post Urn |
+| `member_user_id` | `string` | null | Org admins only: act on this member's account (`user_record_id` from list_org_members), as if switched to it in the app. Omit for your own account. |
 
 
 ---
@@ -1499,21 +1415,20 @@ Three modes, one per call:
   `available_kinds` lists the tabs open to this account.
 
 To change a list or add someone, use manage_engagement_list. The
-posts to engage with are not here (feed tools). With member_user_id:
-that member's lists and suggestions.
+posts to engage with are not here (feed tools).
 
 | Input | Type | Default | Description |
 |---|---|---|---|
-| `list_id` | `string \| null` | null | List Id |
+| `list_id` | `string` | null | List Id |
 | `include_creators` | `boolean` | `true` | Include Creators |
 | `creators_limit` | `integer` | `100` | Creators Limit |
-| `search` | `string \| null` | null | Search |
-| `suggestions` | `string \| null` | null | Suggestions |
-| `description` | `string \| null` | null | Description |
-| `icp_id` | `string \| null` | null | Icp Id |
-| `fit` | `array \| null` | null | Fit |
-| `section` | `string \| null` | null | Section |
-| `member_user_id` | `string \| null` | null | Org admins only: act on the account of this member of your organisation (`user_record_id` from list_org_members), exactly as if you had switched to that account in the app. Leave empty for your own account. |
+| `search` | `string` | null | Search |
+| `suggestions` | `string` | null | Suggestions |
+| `description` | `string` | null | Description |
+| `icp_id` | `string` | null | Icp Id |
+| `fit` | `array` | null | Fit |
+| `section` | `string` | null | Section |
+| `member_user_id` | `string` | null | Org admins only: act on this member's account (`user_record_id` from list_org_members), as if switched to it in the app. Omit for your own account. |
 
 
 ---
@@ -1560,26 +1475,25 @@ Free trial accounts have caps (lists, profiles per list, followed
 profiles). A refusal has `error_type`
 "trial_engagement_cap_reached" with `cap`, `limit` and `used`: do
 not retry, tell the user. Outside a trial a list holds at most 99
-profiles (`error_type` "engagement_list_full"). With member_user_id:
-that member's lists, under the member's caps.
+profiles (`error_type` "engagement_list_full").
 
 | Input | Type | Default | Description |
 |---|---|---|---|
 | `action` | `string` | — | Action |
-| `list_id` | `string \| null` | null | List Id |
-| `list_ids` | `array \| null` | null | List Ids |
-| `name` | `string \| null` | null | Name |
-| `icon` | `string \| null` | null | Icon |
-| `profile_url` | `string \| null` | null | Profile Url |
-| `urn` | `string \| null` | null | Urn |
-| `urns` | `array \| null` | null | Urns |
-| `headline` | `string \| null` | null | Headline |
-| `picture_url` | `string \| null` | null | Picture Url |
-| `creator_type` | `string \| null` | null | Creator Type |
-| `include_quiet` | `boolean \| null` | null | Include Quiet |
-| `include_silent` | `boolean \| null` | null | Include Silent |
-| `skip_synced_within_hours` | `integer \| null` | null | Skip Synced Within Hours |
-| `member_user_id` | `string \| null` | null | Org admins only: act on the account of this member of your organisation (`user_record_id` from list_org_members), exactly as if you had switched to that account in the app. Leave empty for your own account. |
+| `list_id` | `string` | null | List Id |
+| `list_ids` | `array` | null | List Ids |
+| `name` | `string` | null | Name |
+| `icon` | `string` | null | Icon |
+| `profile_url` | `string` | null | Profile Url |
+| `urn` | `string` | null | Urn |
+| `urns` | `array` | null | Urns |
+| `headline` | `string` | null | Headline |
+| `picture_url` | `string` | null | Picture Url |
+| `creator_type` | `string` | null | Creator Type |
+| `include_quiet` | `boolean` | null | Include Quiet |
+| `include_silent` | `boolean` | null | Include Silent |
+| `skip_synced_within_hours` | `integer` | null | Skip Synced Within Hours |
+| `member_user_id` | `string` | null | Org admins only: act on this member's account (`user_record_id` from list_org_members), as if switched to it in the app. Omit for your own account. The member's caps apply. |
 
 
 ---
@@ -1617,17 +1531,16 @@ the call answers `ambiguous_comment` with both: ask the user, then call
 again with `target` "published" or "queued".
 `linkedin_relogin_required`: the user must reconnect LinkedIn in
 MagicPost. A scheduled comment under the user's OWN post is managed
-with delete_post_comment, not here. With member_user_id, the gesture of
-that member's LinkedIn account is changed.
+with delete_post_comment, not here.
 
 | Input | Type | Default | Description |
 |---|---|---|---|
 | `action` | `string` | — | Action |
-| `post_url` | `string \| null` | null | Post Url |
-| `post_urn` | `string \| null` | null | Post Urn |
-| `text` | `string \| null` | null | Text |
-| `target` | `string \| null` | null | Target |
-| `member_user_id` | `string \| null` | null | Org admins only: act on the account of this member of your organisation (`user_record_id` from list_org_members), exactly as if you had switched to that account in the app. Leave empty for your own account. |
+| `post_url` | `string` | null | Post Url |
+| `post_urn` | `string` | null | Post Urn |
+| `text` | `string` | null | Text |
+| `target` | `string` | null | Target |
+| `member_user_id` | `string` | null | Org admins only: act on this member's account (`user_record_id` from list_org_members), as if switched to it in the app. Omit for your own account. Changes the gesture made from that member's LinkedIn account. |
 
 
 ---
@@ -1654,18 +1567,17 @@ Actions:
 `media_url` must be an image already stored by MagicPost (the
 `media_url` of another bookmark or of a comment).
 To post a saved comment, pass its text to engage_with_post.
-With member_user_id: that member's saved comments.
 
 | Input | Type | Default | Description |
 |---|---|---|---|
 | `action` | `string` | — | Action |
-| `bookmark_id` | `string \| null` | null | Bookmark Id |
-| `text` | `string \| null` | null | Text |
-| `name` | `string \| null` | null | Name |
-| `source` | `string \| null` | null | Source |
-| `media_url` | `string \| null` | null | Media Url |
+| `bookmark_id` | `string` | null | Bookmark Id |
+| `text` | `string` | null | Text |
+| `name` | `string` | null | Name |
+| `source` | `string` | null | Source |
+| `media_url` | `string` | null | Media Url |
 | `remove_media` | `boolean` | `false` | Remove Media |
-| `member_user_id` | `string \| null` | null | Org admins only: act on the account of this member of your organisation (`user_record_id` from list_org_members), exactly as if you had switched to that account in the app. Leave empty for your own account. |
+| `member_user_id` | `string` | null | Org admins only: act on this member's account (`user_record_id` from list_org_members), as if switched to it in the app. Omit for your own account. |
 
 
 ---
@@ -1703,26 +1615,25 @@ Views:
 To follow someone, pass their `public_urn` to manage_engagement_list
 (action add_creator). To engage with a post, use engage_with_post.
 Profile suggestions per tab (for you, prospects, teammates, creators)
-are in list_engagement_lists(suggestions=...). With member_user_id:
-the recommendations of that member's account.
+are in list_engagement_lists(suggestions=...).
 
 | Input | Type | Default | Description |
 |---|---|---|---|
 | `view` | `string` | `'profiles'` | View |
-| `profile` | `string \| null` | null | Profile |
-| `kind` | `string \| null` | null | Kind |
-| `source` | `string \| null` | null | Source |
-| `countries` | `array \| null` | null | Countries |
-| `excluded_countries` | `array \| null` | null | Excluded Countries |
-| `niches` | `array \| null` | null | Niches |
-| `excluded_niches` | `array \| null` | null | Excluded Niches |
-| `min_posts_per_week` | `integer \| null` | null | Min Posts Per Week |
-| `followers_min` | `integer \| null` | null | Followers Min |
-| `followers_max` | `integer \| null` | null | Followers Max |
-| `sort` | `string \| null` | null | Sort |
-| `cursor` | `integer \| null` | null | Cursor |
-| `limit` | `integer \| null` | null | Limit |
-| `member_user_id` | `string \| null` | null | Org admins only: act on the account of this member of your organisation (`user_record_id` from list_org_members), exactly as if you had switched to that account in the app. Leave empty for your own account. |
+| `profile` | `string` | null | Profile |
+| `kind` | `string` | null | Kind |
+| `source` | `string` | null | Source |
+| `countries` | `array` | null | Countries |
+| `excluded_countries` | `array` | null | Excluded Countries |
+| `niches` | `array` | null | Niches |
+| `excluded_niches` | `array` | null | Excluded Niches |
+| `min_posts_per_week` | `integer` | null | Min Posts Per Week |
+| `followers_min` | `integer` | null | Followers Min |
+| `followers_max` | `integer` | null | Followers Max |
+| `sort` | `string` | null | Sort |
+| `cursor` | `integer` | null | Cursor |
+| `limit` | `integer` | null | Limit |
+| `member_user_id` | `string` | null | Org admins only: act on this member's account (`user_record_id` from list_org_members), as if switched to it in the app. Omit for your own account. |
 
 
 ---
@@ -1750,16 +1661,11 @@ Each scan uses the user's daily AI score quota (a post_id whose text
 did not change since its last scan is free). On
 `ai_score_quota_reached`, do not retry before `reset_at`.
 
-To score a post owned by an organisation member, pass its `post_id`
-AND that `member_user_id` (org super_admins only): the scan uses the
-MEMBER's quota. Plain `text` needs no member_user_id: without a
-post_id, member_user_id is ignored and the scan uses your own quota.
-
 | Input | Type | Default | Description |
 |---|---|---|---|
-| `text` | `string \| null` | null | Text |
-| `post_id` | `string \| null` | null | Post Id |
-| `member_user_id` | `string \| null` | null | Member User Id |
+| `text` | `string` | null | Text |
+| `post_id` | `string` | null | Post Id |
+| `member_user_id` | `string` | null | Org admins only: act on this member's account (`user_record_id` from list_org_members), as if switched to it in the app. Omit for your own account. Pass it with the `post_id` of that member's post: the scan uses the MEMBER's quota. Ignored without a post_id (plain `text` uses your own quota). |
 
 
 ---
@@ -1775,16 +1681,12 @@ Use this when the user asks things like:
   - "Add these 3 topics to my ideas"
 For several ideas, call the tool once per idea.
 
-This writes to the CALLER's own notebook, or, with `member_user_id`,
-to the notebook of a member of the caller's organisation (signed by
-the agency, as when an admin switches to that account in the app).
-
 Parameters
 ----------
 - idea: the idea itself, short (a topic, an angle, a hook). Max 2000
   characters. May be empty only if `notes` is given.
 - notes: optional longer context kept with the idea (sources, angle,
-  personal anecdote, outline). Max 20000 characters.
+  personal anecdote, outline). Max 100000 characters.
 - column_id: optional board column to create it in (ids from the
   `columns` of list_notebook_ideas; "used" files it as already used).
 - category / post_type: optional, from the `categories` and
@@ -1807,12 +1709,12 @@ or the idea may be saved twice.
 | Input | Type | Default | Description |
 |---|---|---|---|
 | `idea` | `string` | — | Idea |
-| `notes` | `string \| null` | null | Notes |
-| `column_id` | `string \| null` | null | Column Id |
-| `category` | `string \| null` | null | Category |
-| `post_type` | `string \| null` | null | Post Type |
-| `label_ids` | `array \| null` | null | Label Ids |
-| `member_user_id` | `string \| null` | null | Org admins only: act on the account of this member of your organisation (`user_record_id` from list_org_members), exactly as if you had switched to that account in the app. Leave empty for your own account. |
+| `notes` | `string` | null | Notes |
+| `column_id` | `string` | null | Column Id |
+| `category` | `string` | null | Category |
+| `post_type` | `string` | null | Post Type |
+| `label_ids` | `array` | null | Label Ids |
+| `member_user_id` | `string` | null | Org admins only: act on this member's account (`user_record_id` from list_org_members), as if switched to it in the app. Omit for your own account. The idea goes to that member's notebook, signed by the agency. |
 
 
 ---
@@ -1839,8 +1741,6 @@ Parameters
 - is_favourite: only starred (true) or non starred (false) ideas.
 - category: only the ideas of one category (see `categories`).
 - limit / offset: pagination (max 50 per page).
-- member_user_id: org admins only, the notebook of a member of the
-  organisation (as if switched to that account in the app).
 
 Returns
 -------
@@ -1848,7 +1748,9 @@ Returns
 source, category, post_type, elements, label_ids, labels,
 attachments: [{id, name, mime, size_bytes, kind}], client_visible,
 author, listed_for_client, created_at, updated_at}], total, has_more,
-columns, labels, post_types, categories}`.
+columns, labels, post_types, categories}`. Long notes are cut to
+their first 2000 characters here (`notes_truncated: true`):
+get_notebook_idea returns them in full.
 `columns` lists the board columns `{id, label}` (column "used" = the
 idea was already used); `labels` the account's labels `{id, name,
 color}`. `client_visible` / `listed_for_client` only matter on a
@@ -1857,13 +1759,13 @@ notebook shared with an agency client or for approval.
 | Input | Type | Default | Description |
 |---|---|---|---|
 | `scope` | `string` | `'notebook'` | Scope |
-| `status` | `string \| null` | null | Status |
-| `query` | `string \| null` | null | Query |
-| `is_favourite` | `boolean \| null` | null | Is Favourite |
-| `category` | `string \| null` | null | Category |
+| `status` | `string` | null | Status |
+| `query` | `string` | null | Query |
+| `is_favourite` | `boolean` | null | Is Favourite |
+| `category` | `string` | null | Category |
 | `limit` | `integer` | `20` | Limit |
 | `offset` | `integer` | `0` | Offset |
-| `member_user_id` | `string \| null` | null | Org admins only: act on the account of this member of your organisation (`user_record_id` from list_org_members), exactly as if you had switched to that account in the app. Leave empty for your own account. |
+| `member_user_id` | `string` | null | Org admins only: act on this member's account (`user_record_id` from list_org_members), as if switched to it in the app. Omit for your own account. |
 
 
 ---
@@ -1881,9 +1783,6 @@ idea's `attachments`):
 - attachment_content="download_url": a private link to the file,
   valid one hour. Share it only with the user.
 
-Org admins: pass `member_user_id` to read an idea of a member's
-notebook.
-
 Returns
 -------
 The idea `{success, idea_id, idea, notes, ..., attachments}`, plus
@@ -1893,9 +1792,9 @@ expires_in_seconds}` when `attachment_id` is passed.
 | Input | Type | Default | Description |
 |---|---|---|---|
 | `idea_id` | `string` | — | Idea Id |
-| `attachment_id` | `string \| null` | null | Attachment Id |
+| `attachment_id` | `string` | null | Attachment Id |
 | `attachment_content` | `string` | `'text'` | Attachment Content |
-| `member_user_id` | `string \| null` | null | Org admins only: act on the account of this member of your organisation (`user_record_id` from list_org_members), exactly as if you had switched to that account in the app. Leave empty for your own account. |
+| `member_user_id` | `string` | null | Org admins only: act on this member's account (`user_record_id` from list_org_members), as if switched to it in the app. Omit for your own account. |
 
 
 ---
@@ -1932,9 +1831,6 @@ Actions
 - "delete": delete the idea and its attached files. This cannot be
   undone: confirm with the user first.
 
-Org admins: pass `member_user_id` to act on an idea of a member's
-notebook.
-
 Returns
 -------
 The idea after the change, the new idea for "duplicate", `{elements}`
@@ -1944,19 +1840,19 @@ for "generate_elements", or `{success, idea_id, deleted}`.
 |---|---|---|---|
 | `action` | `string` | — | Action |
 | `idea_id` | `string` | — | Idea Id |
-| `idea` | `string \| null` | null | Idea |
-| `notes` | `string \| null` | null | Notes |
+| `idea` | `string` | null | Idea |
+| `notes` | `string` | null | Notes |
 | `clear_notes` | `boolean` | `false` | Clear Notes |
-| `column_id` | `string \| null` | null | Column Id |
+| `column_id` | `string` | null | Column Id |
 | `move_to_top` | `boolean` | `false` | Move To Top |
-| `is_favourite` | `boolean \| null` | null | Is Favourite |
-| `category` | `string \| null` | null | Category |
-| `post_type` | `string \| null` | null | Post Type |
+| `is_favourite` | `boolean` | null | Is Favourite |
+| `category` | `string` | null | Category |
+| `post_type` | `string` | null | Post Type |
 | `clear_category_and_type` | `boolean` | `false` | Clear Category And Type |
-| `elements` | `array \| null` | null | Elements |
-| `label_ids` | `array \| null` | null | Label Ids |
-| `client_visible` | `boolean \| null` | null | Client Visible |
-| `member_user_id` | `string \| null` | null | Org admins only: act on the account of this member of your organisation (`user_record_id` from list_org_members), exactly as if you had switched to that account in the app. Leave empty for your own account. |
+| `elements` | `array` | null | Elements |
+| `label_ids` | `array` | null | Label Ids |
+| `client_visible` | `boolean` | null | Client Visible |
+| `member_user_id` | `string` | null | Org admins only: act on this member's account (`user_record_id` from list_org_members), as if switched to it in the app. Omit for your own account. |
 
 
 ---
@@ -1983,9 +1879,6 @@ Actions
 - "delete": remove the file `attachment_id` (or cancel a prepared
   upload). Confirm with the user first.
 
-Org admins: pass `member_user_id` to act on an idea of a member's
-notebook (the file is stored in that member's account).
-
 Returns
 -------
 `{success, attachment: {id, name, mime, size_bytes, kind}}`, the
@@ -1995,11 +1888,11 @@ upload ticket for "prepare_upload", or `{deleted}`.
 |---|---|---|---|
 | `action` | `string` | — | Action |
 | `idea_id` | `string` | — | Idea Id |
-| `attachment_id` | `string \| null` | null | Attachment Id |
-| `file_url` | `string \| null` | null | File Url |
-| `file_name` | `string \| null` | null | File Name |
-| `size_bytes` | `integer \| null` | null | Size Bytes |
-| `member_user_id` | `string \| null` | null | Org admins only: act on the account of this member of your organisation (`user_record_id` from list_org_members), exactly as if you had switched to that account in the app. Leave empty for your own account. |
+| `attachment_id` | `string` | null | Attachment Id |
+| `file_url` | `string` | null | File Url |
+| `file_name` | `string` | null | File Name |
+| `size_bytes` | `integer` | null | Size Bytes |
+| `member_user_id` | `string` | null | Org admins only: act on this member's account (`user_record_id` from list_org_members), as if switched to it in the app. Omit for your own account. The file is stored in that member's account. |
 
 
 ---
@@ -2022,8 +1915,7 @@ Actions
   in the notebook are shown to the agency client (or for approval) by
   default.
 
-A board has 2 to 8 columns; labels are at most 40 characters. Org
-admins: pass `member_user_id` for a member's notebook.
+A board has 2 to 8 columns; labels are at most 40 characters.
 
 Returns
 -------
@@ -2033,11 +1925,11 @@ ideas_moved_from_columns}`.
 | Input | Type | Default | Description |
 |---|---|---|---|
 | `action` | `string` | — | Action |
-| `column_id` | `string \| null` | null | Column Id |
-| `label` | `string \| null` | null | Label |
-| `column_ids` | `array \| null` | null | Column Ids |
-| `enabled` | `boolean \| null` | null | Enabled |
-| `member_user_id` | `string \| null` | null | Org admins only: act on the account of this member of your organisation (`user_record_id` from list_org_members), exactly as if you had switched to that account in the app. Leave empty for your own account. |
+| `column_id` | `string` | null | Column Id |
+| `label` | `string` | null | Label |
+| `column_ids` | `array` | null | Column Ids |
+| `enabled` | `boolean` | null | Enabled |
+| `member_user_id` | `string` | null | Org admins only: act on this member's account (`user_record_id` from list_org_members), as if switched to it in the app. Omit for your own account. |
 
 
 ---
@@ -2064,17 +1956,15 @@ Views
 
 Typical flow: overview, then add a source with manage_idea_sources if
 needed, then generate_ideas, then manage_generated_idea to develop or
-pin the ideas the user likes. Org admins: pass the same
-`member_user_id` to each of these tools to work on a member's
-generator.
+pin the ideas the user likes.
 
 | Input | Type | Default | Description |
 |---|---|---|---|
 | `view` | `string` | `'overview'` | View |
-| `generation_style` | `string \| null` | null | Generation Style |
-| `source_id` | `string \| null` | null | Source Id |
-| `kind` | `string \| null` | null | Kind |
-| `member_user_id` | `string \| null` | null | Org admins only: act on the account of this member of your organisation (`user_record_id` from list_org_members), exactly as if you had switched to that account in the app. Leave empty for your own account. |
+| `generation_style` | `string` | null | Generation Style |
+| `source_id` | `string` | null | Source Id |
+| `kind` | `string` | null | Kind |
+| `member_user_id` | `string` | null | Org admins only: act on this member's account (`user_record_id` from list_org_members), as if switched to it in the app. Omit for your own account. Pass the same member_user_id to each tool of the flow (manage_idea_sources, generate_ideas, manage_generated_idea). |
 
 
 ---
@@ -2086,7 +1976,8 @@ suggest new ones from the user's LinkedIn profile.
 
 Actions
 -------
-- "add_theme": a topic the user writes about (`theme`, short).
+- "add_theme": a topic the user writes about (`theme`: a few words,
+  or a pasted brief up to 10000 characters).
 - "add_persona": an audience (`name`, optional `description`). At most
   30 personas.
 - "add_url": an article or web page (`url`). Its content is read and
@@ -2108,25 +1999,22 @@ Actions
   them, then add the ones the user picks with add_theme or
   add_persona. Needs LinkedIn connected.
 
-Org admins: pass `member_user_id` to manage a member's sources (the
-member's LinkedIn profile for "suggest").
-
 Returns the source with its `source_id` (pass it to generate_ideas),
 `{deleted: true}`, or `{suggestions}`.
 
 | Input | Type | Default | Description |
 |---|---|---|---|
 | `action` | `string` | — | Action |
-| `kind` | `string \| null` | null | Kind |
-| `source_id` | `string \| null` | null | Source Id |
-| `theme` | `string \| null` | null | Theme |
-| `name` | `string \| null` | null | Name |
-| `description` | `string \| null` | null | Description |
-| `url` | `string \| null` | null | Url |
-| `file_url` | `string \| null` | null | File Url |
-| `text` | `string \| null` | null | Text |
-| `file_name` | `string \| null` | null | File Name |
-| `member_user_id` | `string \| null` | null | Org admins only: act on the account of this member of your organisation (`user_record_id` from list_org_members), exactly as if you had switched to that account in the app. Leave empty for your own account. |
+| `kind` | `string` | null | Kind |
+| `source_id` | `string` | null | Source Id |
+| `theme` | `string` | null | Theme |
+| `name` | `string` | null | Name |
+| `description` | `string` | null | Description |
+| `url` | `string` | null | Url |
+| `file_url` | `string` | null | File Url |
+| `text` | `string` | null | Text |
+| `file_name` | `string` | null | File Name |
+| `member_user_id` | `string` | null | Org admins only: act on this member's account (`user_record_id` from list_org_members), as if switched to it in the app. Omit for your own account. "suggest" reads that member's LinkedIn profile. |
 
 
 ---
@@ -2155,8 +2043,6 @@ Parameters
   Promotional (offer, lead generation).
 - instruction: optional angle for "url" and "file" only (max 500
   characters), for example "focus on the pricing part".
-- member_user_id: org admins only, generate for a member of the
-  organisation, with that member's sources, quota and plan.
 
 Returns the new version: `{generation_id, version_number, ideas:
 [{idea_id, subject, category, post_type, elements}], generation_quota}`.
@@ -2171,10 +2057,10 @@ generator), `idea_generation_rate_limit` (429, quota used up until
 |---|---|---|---|
 | `generation_style` | `string` | — | Generation Style |
 | `post_type` | `string` | — | Post Type |
-| `source_id` | `string \| null` | null | Source Id |
-| `post_refs` | `array \| null` | null | Post Refs |
-| `instruction` | `string \| null` | null | Instruction |
-| `member_user_id` | `string \| null` | null | Org admins only: act on the account of this member of your organisation (`user_record_id` from list_org_members), exactly as if you had switched to that account in the app. Leave empty for your own account. |
+| `source_id` | `string` | null | Source Id |
+| `post_refs` | `array` | null | Post Refs |
+| `instruction` | `string` | null | Instruction |
+| `member_user_id` | `string` | null | Org admins only: act on this member's account (`user_record_id` from list_org_members), as if switched to it in the app. Omit for your own account. That member's sources, quota and plan apply. |
 
 
 ---
@@ -2197,17 +2083,15 @@ When the idea is pinned, edit and generate_elements also update its
 notebook copy. To unpin it or mark it as used, call
 manage_notebook_idea with `pinned_idea_id` (delete or mark_used).
 To write the post, call generate_post with the subject and elements.
-Org admins: pass `member_user_id` for an idea of a member's generator
-(pinned to that member's notebook).
 
 | Input | Type | Default | Description |
 |---|---|---|---|
 | `action` | `string` | — | Action |
 | `generation_id` | `string` | — | Generation Id |
 | `idea_id` | `string` | — | Idea Id |
-| `subject` | `string \| null` | null | Subject |
-| `elements` | `array \| null` | null | Elements |
-| `member_user_id` | `string \| null` | null | Org admins only: act on the account of this member of your organisation (`user_record_id` from list_org_members), exactly as if you had switched to that account in the app. Leave empty for your own account. |
+| `subject` | `string` | null | Subject |
+| `elements` | `array` | null | Elements |
+| `member_user_id` | `string` | null | Org admins only: act on this member's account (`user_record_id` from list_org_members), as if switched to it in the app. Omit for your own account. A pinned idea goes to that member's notebook. |
 
 
 ---
@@ -2225,19 +2109,17 @@ generations (app and assistant alike).
 - language: language of the ideas, as a language name (for example
   "English", "Français", "Español"). `reset_language=true` goes back
   to the user's post language.
-- member_user_id: org admins only, change the settings of a member's
-  generator.
 
 Returns the settings after the change.
 
 | Input | Type | Default | Description |
 |---|---|---|---|
-| `use_ai_context` | `boolean \| null` | null | Use Ai Context |
-| `use_previous_posts` | `boolean \| null` | null | Use Previous Posts |
-| `use_categories` | `boolean \| null` | null | Use Categories |
-| `language` | `string \| null` | null | Language |
+| `use_ai_context` | `boolean` | null | Use Ai Context |
+| `use_previous_posts` | `boolean` | null | Use Previous Posts |
+| `use_categories` | `boolean` | null | Use Categories |
+| `language` | `string` | null | Language |
 | `reset_language` | `boolean` | `false` | Reset Language |
-| `member_user_id` | `string \| null` | null | Org admins only: act on the account of this member of your organisation (`user_record_id` from list_org_members), exactly as if you had switched to that account in the app. Leave empty for your own account. |
+| `member_user_id` | `string` | null | Org admins only: act on this member's account (`user_record_id` from list_org_members), as if switched to it in the app. Omit for your own account. |
 
 
 ---
@@ -2245,8 +2127,7 @@ Returns the settings after the change.
 ## get_generation_settings
 
 Read what MagicPost knows about the user and how it writes their
-posts: the "Knowledge base" page of the app. With member_user_id, an
-org admin reads that member's knowledge base and settings.
+posts: the "Knowledge base" page of the app.
 
 Without source_id, returns:
 - settings: default writing settings used by every generation:
@@ -2282,8 +2163,8 @@ style rules, profile fields, instructions and its text content.
 
 | Input | Type | Default | Description |
 |---|---|---|---|
-| `source_id` | `string \| null` | null | Source Id |
-| `member_user_id` | `string \| null` | null | Org admins only: act on the account of this member of your organisation (`user_record_id` from list_org_members), exactly as if you had switched to that account in the app. Leave empty for your own account. |
+| `source_id` | `string` | null | Source Id |
+| `member_user_id` | `string` | null | Org admins only: act on this member's account (`user_record_id` from list_org_members), as if switched to it in the app. Omit for your own account. |
 
 
 ---
@@ -2292,9 +2173,7 @@ style rules, profile fields, instructions and its text content.
 
 Change what MagicPost knows about the user and how it writes their
 posts, as on the "Knowledge base" page of the app. Read the current
-state with get_generation_settings first. With member_user_id, an org
-admin changes that member's settings (pass the same member_user_id
-to get_generation_settings).
+state with get_generation_settings first.
 
 Actions
 -------
@@ -2365,27 +2244,27 @@ later, as in the app, when a rule contradicts them.
 | Input | Type | Default | Description |
 |---|---|---|---|
 | `action` | `string` | — | Action |
-| `settings` | `object \| null` | null | Settings |
-| `memory` | `object \| null` | null | Memory |
-| `field` | `string \| null` | null | Field |
-| `website` | `string \| null` | null | Website |
-| `instruction_id` | `string \| null` | null | Instruction Id |
-| `text` | `string \| null` | null | Text |
-| `is_active` | `boolean \| null` | null | Is Active |
-| `target` | `string \| null` | null | Target |
-| `title` | `string \| null` | null | Title |
-| `file_url` | `string \| null` | null | File Url |
-| `file_name` | `string \| null` | null | File Name |
-| `source_id` | `string \| null` | null | Source Id |
-| `instructions_enabled` | `boolean \| null` | null | Instructions Enabled |
-| `condensed_context` | `string \| null` | null | Condensed Context |
-| `memory_id` | `string \| null` | null | Memory Id |
-| `version` | `integer \| null` | null | Version |
-| `content` | `string \| null` | null | Content |
-| `kind` | `string \| null` | null | Kind |
-| `writing_style_urn` | `string \| null` | null | Writing Style Urn |
-| `writing_style_mode` | `string \| null` | null | Writing Style Mode |
-| `member_user_id` | `string \| null` | null | Org admins only: act on the account of this member of your organisation (`user_record_id` from list_org_members), exactly as if you had switched to that account in the app. Leave empty for your own account. |
+| `settings` | `object` | null | Settings |
+| `memory` | `object` | null | Memory |
+| `field` | `string` | null | Field |
+| `website` | `string` | null | Website |
+| `instruction_id` | `string` | null | Instruction Id |
+| `text` | `string` | null | Text |
+| `is_active` | `boolean` | null | Is Active |
+| `target` | `string` | null | Target |
+| `title` | `string` | null | Title |
+| `file_url` | `string` | null | File Url |
+| `file_name` | `string` | null | File Name |
+| `source_id` | `string` | null | Source Id |
+| `instructions_enabled` | `boolean` | null | Instructions Enabled |
+| `condensed_context` | `string` | null | Condensed Context |
+| `memory_id` | `string` | null | Memory Id |
+| `version` | `integer` | null | Version |
+| `content` | `string` | null | Content |
+| `kind` | `string` | null | Kind |
+| `writing_style_urn` | `string` | null | Writing Style Urn |
+| `writing_style_mode` | `string` | null | Writing Style Mode |
+| `member_user_id` | `string` | null | Org admins only: act on this member's account (`user_record_id` from list_org_members), as if switched to it in the app. Omit for your own account. Read that member's state first: pass the same member_user_id to get_generation_settings. |
 
 
 ---
@@ -2416,19 +2295,14 @@ Returns `error_type='daily_post_limit_reached'` (429) with `limit` and
 LinkedIn profile may publish per 24 hours (published and scheduled
 posts both count). Tell the user and pick a later slot: do not retry.
 
-With `member_user_id`, a post of that account of your organisation, as
-if you had switched to it in the app: its timezone, its LinkedIn
-connection, its posts per 24 hours and its validation mode (the post
-then waits for validation, `pending_approval: true`).
-
 | Input | Type | Default | Description |
 |---|---|---|---|
 | `post_id` | `string` | — | Post Id |
 | `at_iso` | `string` | — | At Iso |
-| `timezone` | `string \| null` | null | Timezone |
+| `timezone` | `string` | null | Timezone |
 | `confirm_same_day` | `boolean` | `true` | Confirm Same Day |
 | `confirm_exact_slot` | `boolean` | `true` | Confirm Exact Slot |
-| `member_user_id` | `string \| null` | null | Org admins only: act on the account of this member of your organisation (`user_record_id` from list_org_members), exactly as if you had switched to that account in the app. Leave empty for your own account. |
+| `member_user_id` | `string` | null | Org admins only: act on this member's account (`user_record_id` from list_org_members), as if switched to it in the app. Omit for your own account. The member's timezone, LinkedIn connection, posts per 24 hours and validation mode apply: in validation mode the post waits for validation (`pending_approval: true`). |
 
 
 ---
@@ -2440,14 +2314,10 @@ deleted. Idempotent: returns success even if the post is no longer
 scheduled. Returns 409 if the post is already published (cannot
 un-publish).
 
-For a post owned by an organisation member (e.g. scheduled with
-`schedule_member_post`), pass that `member_user_id`. Only org
-super_admins can do this.
-
 | Input | Type | Default | Description |
 |---|---|---|---|
 | `post_id` | `string` | — | Post Id |
-| `member_user_id` | `string \| null` | null | Member User Id |
+| `member_user_id` | `string` | null | Org admins only: act on this member's account (`user_record_id` from list_org_members), as if switched to it in the app. Omit for your own account. Pass it for a post owned by that member, such as one scheduled with schedule_member_post. |
 
 
 ---
@@ -2462,15 +2332,10 @@ Returns `error_type='daily_post_limit_reached'` (429) with `limit` and
 `retry_at` when the LinkedIn profile already reached its number of
 posts per 24 hours: tell the user, do not retry.
 
-With `member_user_id`, a post of that account of your organisation,
-published with its LinkedIn connection. If that account is in
-validation mode and the post is not approved yet, the call returns
-`error_type='approval_required'` (409) and publishes nothing.
-
 | Input | Type | Default | Description |
 |---|---|---|---|
 | `post_id` | `string` | — | Post Id |
-| `member_user_id` | `string \| null` | null | Org admins only: act on the account of this member of your organisation (`user_record_id` from list_org_members), exactly as if you had switched to that account in the app. Leave empty for your own account. |
+| `member_user_id` | `string` | null | Org admins only: act on this member's account (`user_record_id` from list_org_members), as if switched to it in the app. Omit for your own account. The post is published with that member's LinkedIn connection. If the member is in validation mode and the post is not approved yet, the call returns `error_type='approval_required'` (409) and publishes nothing. |
 
 
 ---
@@ -2493,8 +2358,6 @@ Parameters
 ----------
 - date_from / date_to: the period, both included, as YYYY-MM-DD
   (UTC days). At most 93 days.
-- member_user_id: an organisation member's calendar (id from
-  list_org_members). Only org admins, within the members they manage.
 
 Returns
 -------
@@ -2513,14 +2376,13 @@ calendar).
 To act on a scheduled post use its `id` with schedule_post,
 cancel_scheduled_post or get_post; on a published post use `post_id`
 with get_post, duplicate_post or delete_post; on a calendar idea use
-`manage_calendar_idea` (same `member_user_id`). For a member's post,
-pass the same `member_user_id` to those tools when they take it.
+`manage_calendar_idea`.
 
 | Input | Type | Default | Description |
 |---|---|---|---|
 | `date_from` | `string` | — | Date From |
 | `date_to` | `string` | — | Date To |
-| `member_user_id` | `string \| null` | null | Member User Id |
+| `member_user_id` | `string` | null | Org admins only: act on this member's account (`user_record_id` from list_org_members), as if switched to it in the app. Omit for your own account. Pass the same member_user_id to the tools you chain on that member's posts and calendar ideas. |
 
 
 ---
@@ -2549,10 +2411,6 @@ Options
   keeps the idea internal (hidden from the calendar shared with the
   client), true shows it. Omitted: a new idea placed by the agency is
   internal, any other idea is visible, as in the app.
-- member_user_id: act on an organisation member's calendar (id from
-  list_org_members). Only org admins, within the members they manage.
-  A new idea placed this way is signed by the admin, as when the admin
-  inserts an idea from the team calendar.
 
 To turn a calendar idea into a post, write the post (generate_post or
 create_or_update_post), schedule it (schedule_post), then remove the
@@ -2561,12 +2419,12 @@ calendar idea.
 | Input | Type | Default | Description |
 |---|---|---|---|
 | `action` | `string` | — | Action |
-| `calendar_idea_id` | `string \| null` | null | Calendar Idea Id |
-| `content` | `string \| null` | null | Content |
-| `date` | `string \| null` | null | Date |
-| `notebook_idea_id` | `string \| null` | null | Notebook Idea Id |
-| `client_visible` | `boolean \| null` | null | Client Visible |
-| `member_user_id` | `string \| null` | null | Member User Id |
+| `calendar_idea_id` | `string` | null | Calendar Idea Id |
+| `content` | `string` | null | Content |
+| `date` | `string` | null | Date |
+| `notebook_idea_id` | `string` | null | Notebook Idea Id |
+| `client_visible` | `boolean` | null | Client Visible |
+| `member_user_id` | `string` | null | Org admins only: act on this member's account (`user_record_id` from list_org_members), as if switched to it in the app. Omit for your own account. A new idea placed this way is signed by the admin, as when the admin inserts an idea from the team calendar. |
 
 
 ---
@@ -2591,8 +2449,6 @@ Parameters
 - include_countries: true to also get `available_countries`, the
   countries with their own data (the app's country picker). Always
   returned when the requested country has no data.
-- member_user_id: org admins only, the recommended times of a member
-  of the organisation (country omitted: the member's country).
 
 Returns
 -------
@@ -2603,10 +2459,10 @@ country has no data of its own).
 
 | Input | Type | Default | Description |
 |---|---|---|---|
-| `country` | `string \| null` | null | Country |
+| `country` | `string` | null | Country |
 | `include_grid` | `boolean` | `false` | Include Grid |
 | `include_countries` | `boolean` | `false` | Include Countries |
-| `member_user_id` | `string \| null` | null | Org admins only: act on the account of this member of your organisation (`user_record_id` from list_org_members), exactly as if you had switched to that account in the app. Leave empty for your own account. |
+| `member_user_id` | `string` | null | Org admins only: act on this member's account (`user_record_id` from list_org_members), as if switched to it in the app. Omit for your own account. With `country` omitted, the member's country is used. |
 
 
 ---
@@ -2648,16 +2504,13 @@ video's preview frame, the document's first page or the article image,
 as a URL you can embed in a report. It is null for text and poll posts,
 and when no image was stored for the post.
 
-Org admins can pass `member_user_id` to read the metrics of an account
-they manage.
-
 | Input | Type | Default | Description |
 |---|---|---|---|
 | `date_from` | `string` | — | Date From |
 | `date_to` | `string` | — | Date To |
 | `limit` | `integer` | `50` | Limit |
-| `cursor` | `string \| null` | null | Cursor |
-| `member_user_id` | `string \| null` | null | Org admins only: act on the account of this member of your organisation (`user_record_id` from list_org_members), exactly as if you had switched to that account in the app. Leave empty for your own account. |
+| `cursor` | `string` | null | Cursor |
+| `member_user_id` | `string` | null | Org admins only: act on this member's account (`user_record_id` from list_org_members), as if switched to it in the app. Omit for your own account. |
 
 
 ---
@@ -2690,8 +2543,7 @@ multi-day call instead of one request per day when building a roll-up.
 These are profile-level daily gains, not followers attributed to a
 specific post.
 Use `period` to scope the window. For most questions like "how did I
-perform recently?" use '30d'. Org admins can pass `member_user_id` to
-read the summary of an account they manage.
+perform recently?" use '30d'.
 
 Each `top_posts` entry carries `media_type` (`image`, `video`,
 `document`, `article`, `poll` or `text`) and `thumbnail_url`: the post's
@@ -2718,7 +2570,7 @@ be acted on via the MCP tools.
 |---|---|---|---|
 | `period` | `string` | `'30d'` | Period |
 | `top_n` | `integer` | `5` | Top N |
-| `member_user_id` | `string \| null` | null | Org admins only: act on the account of this member of your organisation (`user_record_id` from list_org_members), exactly as if you had switched to that account in the app. Leave empty for your own account. |
+| `member_user_id` | `string` | null | Org admins only: act on this member's account (`user_record_id` from list_org_members), as if switched to it in the app. Omit for your own account. |
 
 
 ---
@@ -2730,13 +2582,12 @@ Check when LinkedIn post metrics were last updated.
 Call this before `refresh_my_posts`. When `should_refresh` is false,
 reuse the stored metrics instead of starting another refresh. When no
 metrics timestamp exists, `data_available` is false and
-`should_refresh` is true. Org admins can pass `member_user_id` to
-check an account they manage.
+`should_refresh` is true.
 
 | Input | Type | Default | Description |
 |---|---|---|---|
 | `max_age_minutes` | `integer` | `60` | Max Age Minutes |
-| `member_user_id` | `string \| null` | null | Org admins only: act on the account of this member of your organisation (`user_record_id` from list_org_members), exactly as if you had switched to that account in the app. Leave empty for your own account. |
+| `member_user_id` | `string` | null | Org admins only: act on this member's account (`user_record_id` from list_org_members), as if switched to it in the app. Omit for your own account. |
 
 
 ---
@@ -2759,13 +2610,10 @@ If the result comes back with status 'timeout', the refresh is still
 running in the background: tell the user to check back shortly
 instead of calling again.
 
-Org admins can pass `member_user_id` to refresh the posts of an
-account they manage, with that account's LinkedIn connection.
-
 | Input | Type | Default | Description |
 |---|---|---|---|
 | `max_wait_seconds` | `integer` | `90` | Max Wait Seconds |
-| `member_user_id` | `string \| null` | null | Org admins only: act on the account of this member of your organisation (`user_record_id` from list_org_members), exactly as if you had switched to that account in the app. Leave empty for your own account. |
+| `member_user_id` | `string` | null | Org admins only: act on this member's account (`user_record_id` from list_org_members), as if switched to it in the app. Omit for your own account. The refresh uses that member's LinkedIn connection. |
 
 
 ---
@@ -2822,10 +2670,6 @@ Or pass `date_from` and `date_to` (YYYY-MM-DD) instead of `period`.
 to compare (no posts with impressions in the period, unknown follower
 count, too few peers): say so rather than inventing a figure.
 
-`member_user_id` (org admins, from `list_org_members`): read a member's
-`reach_benchmark`, `peer_benchmark`, `format_performance`,
-`impressions_trend` or `audience`, like the agency report of the app.
-
 Market-wide figures are cached by the app. The first `reach_benchmark` of a
 month can take up to 30 seconds; if it times out, wait a minute and call
 once more instead of retrying in a loop.
@@ -2833,12 +2677,12 @@ once more instead of retrying in a loop.
 | Input | Type | Default | Description |
 |---|---|---|---|
 | `view` | `string` | — | View |
-| `period` | `string \| null` | null | Period |
-| `date_from` | `string \| null` | null | Date From |
-| `date_to` | `string \| null` | null | Date To |
-| `month` | `string \| null` | null | Month |
-| `months` | `integer \| null` | null | Months |
-| `member_user_id` | `string \| null` | null | Member User Id |
+| `period` | `string` | null | Period |
+| `date_from` | `string` | null | Date From |
+| `date_to` | `string` | null | Date To |
+| `month` | `string` | null | Month |
+| `months` | `integer` | null | Months |
+| `member_user_id` | `string` | null | Org admins only: act on this member's account (`user_record_id` from list_org_members), as if switched to it in the app. Omit for your own account. Reads that member's `reach_benchmark`, `peer_benchmark`, `format_performance`, `impressions_trend` or `audience`, like the agency report of the app. |
 
 
 ---
@@ -2860,15 +2704,14 @@ recent LinkedIn posts (the Audience tab of the Statistics page).
   ends the completion of profiles that may still be running.
   `error_type='not_running'` (409) when nothing runs.
 
-Org admins can pass `member_user_id` to start or stop the analysis of
-an account they manage. `force` (skip the 7-day freshness rule) is
-reserved to MagicPost administrators. Call once: never in a loop.
+`force` (skip the 7-day freshness rule) is reserved to MagicPost
+administrators. Call once: never in a loop.
 
 | Input | Type | Default | Description |
 |---|---|---|---|
 | `action` | `string` | — | Action |
 | `force` | `boolean` | `false` | Force |
-| `member_user_id` | `string \| null` | null | Org admins only: act on the account of this member of your organisation (`user_record_id` from list_org_members), exactly as if you had switched to that account in the app. Leave empty for your own account. |
+| `member_user_id` | `string` | null | Org admins only: act on this member's account (`user_record_id` from list_org_members), as if switched to it in the app. Omit for your own account. |
 
 
 ---
@@ -2935,19 +2778,19 @@ Common workflows
 
 | Input | Type | Default | Description |
 |---|---|---|---|
-| `query` | `string \| null` | null | Query |
-| `creator_name` | `string \| null` | null | Creator Name |
-| `poster_urn` | `string \| null` | null | Poster Urn |
-| `languages` | `array \| null` | null | Languages |
-| `formats` | `array \| null` | null | Formats |
-| `post_types` | `array \| null` | null | Post Types |
-| `days_range` | `integer \| null` | null | Days Range |
-| `date_from` | `string \| null` | null | Date From |
-| `date_to` | `string \| null` | null | Date To |
-| `min_likes` | `integer \| null` | null | Min Likes |
-| `max_likes` | `integer \| null` | null | Max Likes |
-| `min_words` | `integer \| null` | null | Min Words |
-| `max_words` | `integer \| null` | null | Max Words |
+| `query` | `string` | null | Query |
+| `creator_name` | `string` | null | Creator Name |
+| `poster_urn` | `string` | null | Poster Urn |
+| `languages` | `array` | null | Languages |
+| `formats` | `array` | null | Formats |
+| `post_types` | `array` | null | Post Types |
+| `days_range` | `integer` | null | Days Range |
+| `date_from` | `string` | null | Date From |
+| `date_to` | `string` | null | Date To |
+| `min_likes` | `integer` | null | Min Likes |
+| `max_likes` | `integer` | null | Max Likes |
+| `min_words` | `integer` | null | Min Words |
+| `max_words` | `integer` | null | Max Words |
 | `sort_by` | `string` | `'top_likes'` | Sort By |
 | `page` | `integer` | `1` | Page |
 | `limit` | `integer` | `10` | Limit |
@@ -2970,9 +2813,6 @@ Use this when the user asks things like:
 - include_posts=false: names and counts only.
 - posts_limit: posts returned per collection (`post_count` is the
   full count, `posts_truncated` says when some were left out).
-- member_user_id: for an organisation admin, the collections of a
-  member (id from list_org_members), as when the admin opens that
-  member's account in the app.
 
 Returns
 -------
@@ -2986,10 +2826,10 @@ be dedicated to. Change collections with `manage_collection`.
 
 | Input | Type | Default | Description |
 |---|---|---|---|
-| `collection_id` | `string \| null` | null | Collection Id |
+| `collection_id` | `string` | null | Collection Id |
 | `include_posts` | `boolean` | `true` | Include Posts |
 | `posts_limit` | `integer` | `20` | Posts Limit |
-| `member_user_id` | `string \| null` | null | Member User Id |
+| `member_user_id` | `string` | null | Org admins only: act on this member's account (`user_record_id` from list_org_members), as if switched to it in the app. Omit for your own account. |
 
 
 ---
@@ -3020,19 +2860,16 @@ Actions:
 - `remove_post`: `post_id` and `collection_id` (or `collection_ids`).
   The answer lists `removed_from` and `not_removed`.
 
-member_user_id: for an organisation admin, act on a member's
-collections (id from list_org_members).
-
 | Input | Type | Default | Description |
 |---|---|---|---|
 | `action` | `string` | — | Action |
-| `collection_id` | `string \| null` | null | Collection Id |
-| `collection_ids` | `array \| null` | null | Collection Ids |
-| `name` | `string \| null` | null | Name |
-| `post_id` | `string \| null` | null | Post Id |
+| `collection_id` | `string` | null | Collection Id |
+| `collection_ids` | `array` | null | Collection Ids |
+| `name` | `string` | null | Name |
+| `post_id` | `string` | null | Post Id |
 | `target` | `string` | `'account'` | Target |
-| `for_member_id` | `string \| null` | null | For Member Id |
-| `member_user_id` | `string \| null` | null | Member User Id |
+| `for_member_id` | `string` | null | For Member Id |
+| `member_user_id` | `string` | null | Org admins only: act on this member's account (`user_record_id` from list_org_members), as if switched to it in the app. Omit for your own account. |
 
 
 ---
@@ -3059,9 +2896,6 @@ Use this when the user asks things like:
 Importing the same post twice into the same collection changes
 nothing (`already_in_collection=true`).
 
-With `member_user_id`, a collection of that account of your
-organisation (list_collections with the same member_user_id).
-
 Returns
 -------
 `{success, post: {id, text, poster_name, posted_at, num_likes,
@@ -3076,7 +2910,7 @@ its visibility: tell the user, do not retry.
 |---|---|---|---|
 | `url` | `string` | — | Url |
 | `collection_id` | `string` | — | Collection Id |
-| `member_user_id` | `string \| null` | null | Org admins only: act on the account of this member of your organisation (`user_record_id` from list_org_members), exactly as if you had switched to that account in the app. Leave empty for your own account. |
+| `member_user_id` | `string` | null | Org admins only: act on this member's account (`user_record_id` from list_org_members), as if switched to it in the app. Omit for your own account. The collection must be that member's (list_collections with the same member_user_id). |
 
 
 ---
@@ -3112,19 +2946,18 @@ Pagination
 - offset: 0-indexed. Use `offset` + `has_more` from the response to
   paginate, one page after the other.
 
-Returns `{items, count, limit, offset, has_more}`. With
-member_user_id, lists that member's leads (their own Leads page).
+Returns `{items, count, limit, offset, has_more}`.
 
 | Input | Type | Default | Description |
 |---|---|---|---|
-| `icp_id` | `string \| null` | null | Icp Id |
-| `level` | `string \| null` | null | Level |
-| `contact_status` | `string \| null` | null | Contact Status |
-| `search` | `string \| null` | null | Search |
-| `favorite` | `boolean \| null` | null | Favorite |
+| `icp_id` | `string` | null | Icp Id |
+| `level` | `string` | null | Level |
+| `contact_status` | `string` | null | Contact Status |
+| `search` | `string` | null | Search |
+| `favorite` | `boolean` | null | Favorite |
 | `limit` | `integer` | `20` | Limit |
 | `offset` | `integer` | `0` | Offset |
-| `member_user_id` | `string \| null` | null | Org admins only: act on the account of this member of your organisation (`user_record_id` from list_org_members), exactly as if you had switched to that account in the app. Leave empty for your own account. |
+| `member_user_id` | `string` | null | Org admins only: act on this member's account (`user_record_id` from list_org_members), as if switched to it in the app. Omit for your own account. |
 
 
 ---
@@ -3135,13 +2968,12 @@ Full detail of one lead: profile, interactions (likes/comments on
 the user's posts), qualification reasoning, icebreaker, and CRM sync
 state (`deliveries` to connected external CRMs).
 
-Get `prospect_id` values from `list_leads` (with the same
-member_user_id for a member's lead).
+Get `prospect_id` values from `list_leads`.
 
 | Input | Type | Default | Description |
 |---|---|---|---|
 | `prospect_id` | `string` | — | Prospect Id |
-| `member_user_id` | `string \| null` | null | Org admins only: act on the account of this member of your organisation (`user_record_id` from list_org_members), exactly as if you had switched to that account in the app. Leave empty for your own account. |
+| `member_user_id` | `string` | null | Org admins only: act on this member's account (`user_record_id` from list_org_members), as if switched to it in the app. Omit for your own account. The `prospect_id` then comes from list_leads with the same member_user_id, or from a holder in list_org_leads. |
 
 
 ---
@@ -3159,12 +2991,11 @@ Each ICP carries its definition (`title`, `prompt`), its filters
 (`default_filters`), its keywords (`heuristic_rules`: strong, weak,
 anti) and `digest_status` ('computing' while its scoring profile is
 being built, 'ready', or 'failed'). `archived_at` set = archived.
-Change one with `update_icp`, create one with `create_icp`. With
-member_user_id, lists that member's ICPs.
+Change one with `update_icp`, create one with `create_icp`.
 
 | Input | Type | Default | Description |
 |---|---|---|---|
-| `member_user_id` | `string \| null` | null | Org admins only: act on the account of this member of your organisation (`user_record_id` from list_org_members), exactly as if you had switched to that account in the app. Leave empty for your own account. |
+| `member_user_id` | `string` | null | Org admins only: act on this member's account (`user_record_id` from list_org_members), as if switched to it in the app. Omit for your own account. |
 
 
 ---
@@ -3185,13 +3016,11 @@ and reused for 7 days. Returns `{status, suggestions}`:
   their target instead.
 
 Nothing is saved: show the suggestions, let the user pick or adjust
-one, then call `create_icp` with its title and description. With
-member_user_id, the suggestions are written from that member's
-profile and posts.
+one, then call `create_icp` with its title and description.
 
 | Input | Type | Default | Description |
 |---|---|---|---|
-| `member_user_id` | `string \| null` | null | Org admins only: act on the account of this member of your organisation (`user_record_id` from list_org_members), exactly as if you had switched to that account in the app. Leave empty for your own account. |
+| `member_user_id` | `string` | null | Org admins only: act on this member's account (`user_record_id` from list_org_members), as if switched to it in the app. Omit for your own account. The suggestions are written from that member's profile and posts. |
 
 
 ---
@@ -3242,11 +3071,7 @@ it at the organisation level, turned on for the creator and for
 member_ids (ids from `list_org_members`) or all_members=true. Members
 at their ICP cap come back in `skipped`. The response is then
 `{icp, activated, skipped}`. An existing ICP goes to the organisation
-with `manage_icp` action 'share_to_org'. An organisation ICP is
-created from your own account: for_org is refused with member_user_id.
-
-With member_user_id, the ICP is created for that member (their ICP
-cap applies).
+with `manage_icp` action 'share_to_org'.
 
 Returns the created ICP (with its `id`). Its scoring profile and
 keywords are prepared in the background for a minute or two; it is
@@ -3258,24 +3083,24 @@ profile URL).
 |---|---|---|---|
 | `title` | `string` | — | Title |
 | `description` | `string` | — | Description |
-| `example_urls` | `array \| null` | null | Example Urls |
-| `negative_example_urls` | `array \| null` | null | Negative Example Urls |
-| `countries` | `array \| null` | null | Countries |
-| `excluded_countries` | `array \| null` | null | Excluded Countries |
-| `industries` | `array \| null` | null | Industries |
-| `excluded_industries` | `array \| null` | null | Excluded Industries |
-| `employees` | `array \| null` | null | Employees |
-| `excluded_employees` | `array \| null` | null | Excluded Employees |
-| `cities` | `array \| null` | null | Cities |
-| `excluded_cities` | `array \| null` | null | Excluded Cities |
-| `gender` | `string \| null` | null | Gender |
-| `profile_flags` | `array \| null` | null | Profile Flags |
-| `followers_min` | `integer \| null` | null | Followers Min |
-| `followers_max` | `integer \| null` | null | Followers Max |
+| `example_urls` | `array` | null | Example Urls |
+| `negative_example_urls` | `array` | null | Negative Example Urls |
+| `countries` | `array` | null | Countries |
+| `excluded_countries` | `array` | null | Excluded Countries |
+| `industries` | `array` | null | Industries |
+| `excluded_industries` | `array` | null | Excluded Industries |
+| `employees` | `array` | null | Employees |
+| `excluded_employees` | `array` | null | Excluded Employees |
+| `cities` | `array` | null | Cities |
+| `excluded_cities` | `array` | null | Excluded Cities |
+| `gender` | `string` | null | Gender |
+| `profile_flags` | `array` | null | Profile Flags |
+| `followers_min` | `integer` | null | Followers Min |
+| `followers_max` | `integer` | null | Followers Max |
 | `for_org` | `boolean` | `false` | For Org |
-| `member_ids` | `array \| null` | null | Member Ids |
+| `member_ids` | `array` | null | Member Ids |
 | `all_members` | `boolean` | `false` | All Members |
-| `member_user_id` | `string \| null` | null | Org admins only: act on the account of this member of your organisation (`user_record_id` from list_org_members), exactly as if you had switched to that account in the app. Leave empty for your own account. |
+| `member_user_id` | `string` | null | Org admins only: act on this member's account (`user_record_id` from list_org_members), as if switched to it in the app. Omit for your own account. The ICP is created for that member, under their ICP cap. An organisation ICP is created from your own account: for_org is refused with it. |
 
 
 ---
@@ -3314,8 +3139,7 @@ included); [] clears it.
 - color: the ICP's tag color in the app.
 
 An admin of the organisation can change its organisation ICPs even
-when they do not use them. With member_user_id, changes an ICP of
-that member, judged on the member's rights.
+when they do not use them.
 
 Returns the updated ICP, plus `heuristic_warnings` when the new
 keywords contradict the ICP's own examples (show them to the user).
@@ -3326,28 +3150,28 @@ wait and retry), `invalid_filter_values` (400, fix from
 | Input | Type | Default | Description |
 |---|---|---|---|
 | `icp_id` | `string` | — | Icp Id |
-| `title` | `string \| null` | null | Title |
-| `description` | `string \| null` | null | Description |
-| `example_urls` | `array \| null` | null | Example Urls |
-| `negative_example_urls` | `array \| null` | null | Negative Example Urls |
-| `countries` | `array \| null` | null | Countries |
-| `excluded_countries` | `array \| null` | null | Excluded Countries |
-| `industries` | `array \| null` | null | Industries |
-| `excluded_industries` | `array \| null` | null | Excluded Industries |
-| `employees` | `array \| null` | null | Employees |
-| `excluded_employees` | `array \| null` | null | Excluded Employees |
-| `cities` | `array \| null` | null | Cities |
-| `excluded_cities` | `array \| null` | null | Excluded Cities |
-| `gender` | `string \| null` | null | Gender |
-| `profile_flags` | `array \| null` | null | Profile Flags |
-| `followers_min` | `integer \| null` | null | Followers Min |
-| `followers_max` | `integer \| null` | null | Followers Max |
-| `strong_keywords` | `array \| null` | null | Strong Keywords |
-| `weak_keywords` | `array \| null` | null | Weak Keywords |
-| `anti_keywords` | `array \| null` | null | Anti Keywords |
+| `title` | `string` | null | Title |
+| `description` | `string` | null | Description |
+| `example_urls` | `array` | null | Example Urls |
+| `negative_example_urls` | `array` | null | Negative Example Urls |
+| `countries` | `array` | null | Countries |
+| `excluded_countries` | `array` | null | Excluded Countries |
+| `industries` | `array` | null | Industries |
+| `excluded_industries` | `array` | null | Excluded Industries |
+| `employees` | `array` | null | Employees |
+| `excluded_employees` | `array` | null | Excluded Employees |
+| `cities` | `array` | null | Cities |
+| `excluded_cities` | `array` | null | Excluded Cities |
+| `gender` | `string` | null | Gender |
+| `profile_flags` | `array` | null | Profile Flags |
+| `followers_min` | `integer` | null | Followers Min |
+| `followers_max` | `integer` | null | Followers Max |
+| `strong_keywords` | `array` | null | Strong Keywords |
+| `weak_keywords` | `array` | null | Weak Keywords |
+| `anti_keywords` | `array` | null | Anti Keywords |
 | `regenerate_keywords` | `boolean` | `false` | Regenerate Keywords |
-| `color` | `string \| null` | null | Color |
-| `member_user_id` | `string \| null` | null | Org admins only: act on the account of this member of your organisation (`user_record_id` from list_org_members), exactly as if you had switched to that account in the app. Leave empty for your own account. |
+| `color` | `string` | null | Color |
+| `member_user_id` | `string` | null | Org admins only: act on this member's account (`user_record_id` from list_org_members), as if switched to it in the app. Omit for your own account. The change is judged on the member's rights. |
 
 
 ---
@@ -3363,16 +3187,15 @@ Pass check_strong_keywords / check_weak_keywords / check_anti_keywords
 to test keywords BEFORE saving them: `keyword_check.heuristic_warnings`
 lists the contradictions with the ICP's own examples (e.g. an
 anti-keyword that would rule out an example profile). Nothing is
-saved; save with `update_icp`. With member_user_id, reads an ICP of
-that member.
+saved; save with `update_icp`.
 
 | Input | Type | Default | Description |
 |---|---|---|---|
 | `icp_id` | `string` | — | Icp Id |
-| `check_strong_keywords` | `array \| null` | null | Check Strong Keywords |
-| `check_weak_keywords` | `array \| null` | null | Check Weak Keywords |
-| `check_anti_keywords` | `array \| null` | null | Check Anti Keywords |
-| `member_user_id` | `string \| null` | null | Org admins only: act on the account of this member of your organisation (`user_record_id` from list_org_members), exactly as if you had switched to that account in the app. Leave empty for your own account. |
+| `check_strong_keywords` | `array` | null | Check Strong Keywords |
+| `check_weak_keywords` | `array` | null | Check Weak Keywords |
+| `check_anti_keywords` | `array` | null | Check Anti Keywords |
+| `member_user_id` | `string` | null | Org admins only: act on this member's account (`user_record_id` from list_org_members), as if switched to it in the app. Omit for your own account. |
 
 
 ---
@@ -3423,11 +3246,6 @@ One action on one ICP. Get the user's agreement first.
   ["A", "B"]) are added to a dedicated engagement list, now and from
   then on. 'disable_auto_engagement' stops it and keeps the list.
 
-member_user_id: act on an ICP of that member, judged on the member's
-rights (like switching to their account in the app). Organisation
-admin actions ('set_members', 'share_to_org' with member_ids or
-all_members) are refused with it: run them from your own account.
-
 Errors: `not_org_admin`, `not_team_org`, `icp_limit_reached`,
 `icp_archived`: relay the hint, do not retry.
 
@@ -3435,11 +3253,11 @@ Errors: `not_org_admin`, `not_team_org`, `icp_limit_reached`,
 |---|---|---|---|
 | `icp_id` | `string` | — | Icp Id |
 | `action` | `string` | — | Action |
-| `member_ids` | `array \| null` | null | Member Ids |
+| `member_ids` | `array` | null | Member Ids |
 | `all_members` | `boolean` | `false` | All Members |
-| `position` | `integer \| null` | null | Position |
-| `fit_levels` | `array \| null` | null | Fit Levels |
-| `member_user_id` | `string \| null` | null | Org admins only: act on the account of this member of your organisation (`user_record_id` from list_org_members), exactly as if you had switched to that account in the app. Leave empty for your own account. |
+| `position` | `integer` | null | Position |
+| `fit_levels` | `array` | null | Fit Levels |
+| `member_user_id` | `string` | null | Org admins only: act on this member's account (`user_record_id` from list_org_members), as if switched to it in the app. Omit for your own account. Judged on the member's rights. Organisation admin actions ('set_members', 'share_to_org' with member_ids or all_members) are refused with it: run them from your own account. |
 
 
 ---
@@ -3465,18 +3283,14 @@ Run the user's existing prospects through an ICP.
 Scoring runs in the background: read the results with
 `list_leads(icp_id=...)`.
 
-With member_user_id, sorts or scores that member's prospects against
-their ICP, and 'score' consumes the MEMBER's Leads credits
-(`credits_account` in the response): tell the user so.
-
 | Input | Type | Default | Description |
 |---|---|---|---|
 | `icp_id` | `string` | — | Icp Id |
 | `mode` | `string` | — | Mode |
-| `target` | `string \| null` | null | Target |
-| `prospect_ids` | `array \| null` | null | Prospect Ids |
+| `target` | `string` | null | Target |
+| `prospect_ids` | `array` | null | Prospect Ids |
 | `confirm` | `boolean` | `true` | Confirm |
-| `member_user_id` | `string \| null` | null | Org admins only: act on the account of this member of your organisation (`user_record_id` from list_org_members), exactly as if you had switched to that account in the app. Leave empty for your own account. |
+| `member_user_id` | `string` | null | Org admins only: act on this member's account (`user_record_id` from list_org_members), as if switched to it in the app. Omit for your own account. 'score' then consumes the MEMBER's Leads credits (`credits_account` in the response): tell the user so. |
 
 
 ---
@@ -3486,14 +3300,13 @@ their ICP, and 'score' consumes the MEMBER's Leads credits
 Add leads to an ICP by hand (they are kept in it whatever their
 score, and count as a fit for this ICP), or remove them from it.
 prospect_ids come from `list_leads`. Returns `created` or `removed`.
-With member_user_id, works on that member's ICP and leads.
 
 | Input | Type | Default | Description |
 |---|---|---|---|
 | `icp_id` | `string` | — | Icp Id |
 | `action` | `string` | — | Action |
 | `prospect_ids` | `array` | — | Prospect Ids |
-| `member_user_id` | `string \| null` | null | Org admins only: act on the account of this member of your organisation (`user_record_id` from list_org_members), exactly as if you had switched to that account in the app. Leave empty for your own account. |
+| `member_user_id` | `string` | null | Org admins only: act on this member's account (`user_record_id` from list_org_members), as if switched to it in the app. Omit for your own account. |
 
 
 ---
@@ -3505,21 +3318,20 @@ like the calibration step of the app's ICP form: use it to check that
 the filters describe the right people before `create_icp` or
 `update_icp`. Same filter values as `create_icp` (exclusions are not
 available here). limit: 1 to 50. Industry labels containing a comma
-cannot be previewed and come back in `ignored_industries`. Pass
-member_user_id when preparing an ICP for that member.
+cannot be previewed and come back in `ignored_industries`.
 
 | Input | Type | Default | Description |
 |---|---|---|---|
-| `countries` | `array \| null` | null | Countries |
-| `industries` | `array \| null` | null | Industries |
-| `employees` | `array \| null` | null | Employees |
-| `cities` | `array \| null` | null | Cities |
-| `gender` | `string \| null` | null | Gender |
-| `profile_flags` | `array \| null` | null | Profile Flags |
-| `followers_min` | `integer \| null` | null | Followers Min |
-| `followers_max` | `integer \| null` | null | Followers Max |
+| `countries` | `array` | null | Countries |
+| `industries` | `array` | null | Industries |
+| `employees` | `array` | null | Employees |
+| `cities` | `array` | null | Cities |
+| `gender` | `string` | null | Gender |
+| `profile_flags` | `array` | null | Profile Flags |
+| `followers_min` | `integer` | null | Followers Min |
+| `followers_max` | `integer` | null | Followers Max |
 | `limit` | `integer` | `12` | Limit |
-| `member_user_id` | `string \| null` | null | Org admins only: act on the account of this member of your organisation (`user_record_id` from list_org_members), exactly as if you had switched to that account in the app. Leave empty for your own account. |
+| `member_user_id` | `string` | null | Org admins only: act on this member's account (`user_record_id` from list_org_members), as if switched to it in the app. Omit for your own account. |
 
 
 ---
@@ -3532,12 +3344,11 @@ leads_consumed_in_period, leads_remaining), top-ups
 (topup_leads_remaining, topups_detail), and renewal date (period_end).
 
 Call this before `detect_leads` if the user asks how many credits
-they have left. With member_user_id, these are the member's own
-credits (`credits_account` says so), not yours.
+they have left.
 
 | Input | Type | Default | Description |
 |---|---|---|---|
-| `member_user_id` | `string \| null` | null | Org admins only: act on the account of this member of your organisation (`user_record_id` from list_org_members), exactly as if you had switched to that account in the app. Leave empty for your own account. |
+| `member_user_id` | `string` | null | Org admins only: act on this member's account (`user_record_id` from list_org_members), as if switched to it in the app. Omit for your own account. These are then the member's own credits (`credits_account` says so), not yours. |
 
 
 ---
@@ -3549,12 +3360,11 @@ typically take 2-15 minutes).
 
 Returns `{in_progress, scoring_in_progress, all_terminal}`.
 `all_terminal: true` means every detection is done: the new leads
-are available via `list_leads`. Pass the same member_user_id as the
-detection you follow.
+are available via `list_leads`.
 
 | Input | Type | Default | Description |
 |---|---|---|---|
-| `member_user_id` | `string \| null` | null | Org admins only: act on the account of this member of your organisation (`user_record_id` from list_org_members), exactly as if you had switched to that account in the app. Leave empty for your own account. |
+| `member_user_id` | `string` | null | Org admins only: act on this member's account (`user_record_id` from list_org_members), as if switched to it in the app. Omit for your own account. Same value as the detection you follow. |
 
 
 ---
@@ -3611,16 +3421,13 @@ Two-step confirmation flow:
 - `results[]` can MIX queued and rejected ICPs (e.g. `queued: 2`
   with one `already_synced` entry). Report both to the user: which
   ICPs were launched and which were skipped, and why.
-- member_user_id: detect on a post of that member's LinkedIn profile,
-  against the member's ICPs. It consumes the MEMBER's Leads credits
-  (`credits_account` in the response): tell the user so.
 
 | Input | Type | Default | Description |
 |---|---|---|---|
 | `post_urn` | `string` | — | Post Urn |
-| `icp_ids` | `array \| null` | null | Icp Ids |
+| `icp_ids` | `array` | null | Icp Ids |
 | `confirm` | `boolean` | `true` | Confirm |
-| `member_user_id` | `string \| null` | null | Org admins only: act on the account of this member of your organisation (`user_record_id` from list_org_members), exactly as if you had switched to that account in the app. Leave empty for your own account. |
+| `member_user_id` | `string` | null | Org admins only: act on this member's account (`user_record_id` from list_org_members), as if switched to it in the app. Omit for your own account. Detects on a post of that member's LinkedIn profile, against the member's ICPs. It consumes the MEMBER's Leads credits (`credits_account` in the response): tell the user so. |
 
 
 ---
@@ -3636,18 +3443,15 @@ Update a lead's pipeline fields. At least one field is required.
 - is_favorite: star/unstar the lead.
 
 Only the provided fields are modified. Returns the updated lead.
-With member_user_id, updates a lead of that member (ids from
-list_leads with the same member_user_id, or a holder's prospect_id
-from list_org_leads).
 
 | Input | Type | Default | Description |
 |---|---|---|---|
 | `prospect_id` | `string` | — | Prospect Id |
-| `contact_status` | `string \| null` | null | Contact Status |
-| `tags` | `array \| null` | null | Tags |
-| `comment` | `string \| null` | null | Comment |
-| `is_favorite` | `boolean \| null` | null | Is Favorite |
-| `member_user_id` | `string \| null` | null | Org admins only: act on the account of this member of your organisation (`user_record_id` from list_org_members), exactly as if you had switched to that account in the app. Leave empty for your own account. |
+| `contact_status` | `string` | null | Contact Status |
+| `tags` | `array` | null | Tags |
+| `comment` | `string` | null | Comment |
+| `is_favorite` | `boolean` | null | Is Favorite |
+| `member_user_id` | `string` | null | Org admins only: act on this member's account (`user_record_id` from list_org_members), as if switched to it in the app. Omit for your own account. The `prospect_id` then comes from list_leads with the same member_user_id, or from a holder in list_org_leads. |
 
 
 ---
@@ -3694,12 +3498,12 @@ is true. `total_people` is the number of distinct people matching.
 
 | Input | Type | Default | Description |
 |---|---|---|---|
-| `member_user_id` | `string \| null` | null | Member User Id |
-| `icp_id` | `string \| null` | null | Icp Id |
-| `level` | `string \| null` | null | Level |
-| `contact_status` | `string \| null` | null | Contact Status |
-| `search` | `string \| null` | null | Search |
-| `favorite` | `boolean \| null` | null | Favorite |
+| `member_user_id` | `string` | null | Member User Id |
+| `icp_id` | `string` | null | Icp Id |
+| `level` | `string` | null | Level |
+| `contact_status` | `string` | null | Contact Status |
+| `search` | `string` | null | Search |
+| `favorite` | `boolean` | null | Favorite |
 | `limit` | `integer` | `20` | Limit |
 | `offset` | `integer` | `0` | Offset |
 
@@ -3742,18 +3546,16 @@ Views, one per call:
   `matching_leads`. Accept or dismiss with manage_lead_exclusions.
 
 Exclusion searches and suggestions share the app's rate limits.
-With member_user_id, reads that member's lists (their personal list,
-and their team list when they belong to one).
 
 | Input | Type | Default | Description |
 |---|---|---|---|
 | `view` | `string` | `'list'` | View |
-| `list_name` | `string \| null` | null | List Name |
-| `kind` | `string \| null` | null | Kind |
-| `query` | `string \| null` | null | Query |
-| `cursor` | `string \| null` | null | Cursor |
+| `list_name` | `string` | null | List Name |
+| `kind` | `string` | null | Kind |
+| `query` | `string` | null | Query |
+| `cursor` | `string` | null | Cursor |
 | `limit` | `integer` | `50` | Limit |
-| `member_user_id` | `string \| null` | null | Org admins only: act on the account of this member of your organisation (`user_record_id` from list_org_members), exactly as if you had switched to that account in the app. Leave empty for your own account. |
+| `member_user_id` | `string` | null | Org admins only: act on this member's account (`user_record_id` from list_org_members), as if switched to it in the app. Omit for your own account. Reads that member's personal list, and their team list when they belong to one. |
 
 
 ---
@@ -3803,27 +3605,26 @@ Actions:
   own_agency (from list_lead_exclusions view="suggestions").
 
 Writes share the app's rate limit; a list holds 20000 entries at
-most. With member_user_id, changes that member's lists, with the
-member's rights on the team list.
+most.
 
 | Input | Type | Default | Description |
 |---|---|---|---|
 | `action` | `string` | — | Action |
-| `text` | `string \| null` | null | Text |
-| `csv_text` | `string \| null` | null | Csv Text |
-| `csv_filename` | `string \| null` | null | Csv Filename |
-| `column_roles` | `object \| null` | null | Column Roles |
-| `choices` | `object \| null` | null | Choices |
-| `list_name` | `string \| null` | null | List Name |
-| `reason` | `string \| null` | null | Reason |
+| `text` | `string` | null | Text |
+| `csv_text` | `string` | null | Csv Text |
+| `csv_filename` | `string` | null | Csv Filename |
+| `column_roles` | `object` | null | Column Roles |
+| `choices` | `object` | null | Choices |
+| `list_name` | `string` | null | List Name |
+| `reason` | `string` | null | Reason |
 | `hide_existing` | `boolean` | `true` | Hide Existing |
-| `prospect_ids` | `array \| null` | null | Prospect Ids |
-| `mode` | `string \| null` | null | Mode |
+| `prospect_ids` | `array` | null | Prospect Ids |
+| `mode` | `string` | null | Mode |
 | `confirm` | `boolean` | `false` | Confirm |
-| `exclusion_id` | `string \| null` | null | Exclusion Id |
-| `exclusion_ids` | `array \| null` | null | Exclusion Ids |
-| `key` | `string \| null` | null | Key |
-| `member_user_id` | `string \| null` | null | Org admins only: act on the account of this member of your organisation (`user_record_id` from list_org_members), exactly as if you had switched to that account in the app. Leave empty for your own account. |
+| `exclusion_id` | `string` | null | Exclusion Id |
+| `exclusion_ids` | `array` | null | Exclusion Ids |
+| `key` | `string` | null | Key |
+| `member_user_id` | `string` | null | Org admins only: act on this member's account (`user_record_id` from list_org_members), as if switched to it in the app. Omit for your own account. The member's rights apply on the team list. |
 
 
 ---
@@ -3902,18 +3703,18 @@ To send leads now, use send_leads_to_crm.
 | Input | Type | Default | Description |
 |---|---|---|---|
 | `action` | `string` | — | Action |
-| `provider` | `string \| null` | null | Provider |
-| `connection_id` | `string \| null` | null | Connection Id |
-| `destination_id` | `string \| null` | null | Destination Id |
+| `provider` | `string` | null | Provider |
+| `connection_id` | `string` | null | Connection Id |
+| `destination_id` | `string` | null | Destination Id |
 | `confirm` | `boolean` | `false` | Confirm |
-| `kind` | `string \| null` | null | Kind |
-| `route_config` | `object \| null` | null | Route Config |
-| `label` | `string \| null` | null | Label |
-| `enabled` | `boolean \| null` | null | Enabled |
-| `min_level` | `string \| null` | null | Min Level |
-| `icp_ids` | `array \| null` | null | Icp Ids |
-| `require_email` | `boolean \| null` | null | Require Email |
-| `status` | `string \| null` | null | Status |
+| `kind` | `string` | null | Kind |
+| `route_config` | `object` | null | Route Config |
+| `label` | `string` | null | Label |
+| `enabled` | `boolean` | null | Enabled |
+| `min_level` | `string` | null | Min Level |
+| `icp_ids` | `array` | null | Icp Ids |
+| `require_email` | `boolean` | null | Require Email |
+| `status` | `string` | null | Status |
 | `limit` | `integer` | `50` | Limit |
 | `offset` | `integer` | `0` | Offset |
 
@@ -3945,8 +3746,8 @@ destination with the user before calling: leads land in their CRM.
 | Input | Type | Default | Description |
 |---|---|---|---|
 | `lead_ids` | `array` | — | Lead Ids |
-| `destination_id` | `string \| null` | null | Destination Id |
-| `connection_id` | `string \| null` | null | Connection Id |
+| `destination_id` | `string` | null | Destination Id |
+| `connection_id` | `string` | null | Connection Id |
 
 
 ---
@@ -3998,10 +3799,10 @@ counted in the team figures. Post ids are MagicPost UUIDs for
 | Input | Type | Default | Description |
 |---|---|---|---|
 | `view` | `string` | `'overview'` | View |
-| `start_date` | `string \| null` | null | Start Date |
-| `end_date` | `string \| null` | null | End Date |
-| `group_ids` | `array \| null` | null | Group Ids |
-| `member_user_ids` | `array \| null` | null | Member User Ids |
+| `start_date` | `string` | null | Start Date |
+| `end_date` | `string` | null | End Date |
+| `group_ids` | `array` | null | Group Ids |
+| `member_user_ids` | `array` | null | Member User Ids |
 | `sort` | `string` | `'scheduled'` | Sort |
 | `upcoming_horizon` | `string` | `'7d'` | Upcoming Horizon |
 | `include_daily_activity` | `boolean` | `false` | Include Daily Activity |
@@ -4081,19 +3882,19 @@ Actions:
 | Input | Type | Default | Description |
 |---|---|---|---|
 | `action` | `string` | — | Action |
-| `group_id` | `string \| null` | null | Group Id |
-| `name` | `string \| null` | null | Name |
-| `color` | `string \| null` | null | Color |
-| `member_user_ids` | `array \| null` | null | Member User Ids |
-| `group_ids` | `array \| null` | null | Group Ids |
+| `group_id` | `string` | null | Group Id |
+| `name` | `string` | null | Name |
+| `color` | `string` | null | Color |
+| `member_user_ids` | `array` | null | Member User Ids |
+| `group_ids` | `array` | null | Group Ids |
 | `all_members` | `boolean` | `false` | All Members |
-| `content` | `string \| null` | null | Content |
-| `date` | `string \| null` | null | Date |
-| `time` | `string \| null` | null | Time |
-| `timezone` | `string \| null` | null | Timezone |
-| `require_validation` | `boolean \| null` | null | Require Validation |
-| `media` | `array \| null` | null | Media |
-| `client_visible` | `boolean \| null` | null | Client Visible |
+| `content` | `string` | null | Content |
+| `date` | `string` | null | Date |
+| `time` | `string` | null | Time |
+| `timezone` | `string` | null | Timezone |
+| `require_validation` | `boolean` | null | Require Validation |
+| `media` | `array` | null | Media |
+| `client_visible` | `boolean` | null | Client Visible |
 
 
 ---
@@ -4156,7 +3957,7 @@ MagicPost have no MagicPost UUID and cannot be acted on.
 | Input | Type | Default | Description |
 |---|---|---|---|
 | `period` | `string` | `'30d'` | Period |
-| `member_user_id` | `string \| null` | null | Member User Id |
+| `member_user_id` | `string` | null | Member User Id |
 | `top_n` | `integer` | `3` | Top N |
 
 
@@ -4190,7 +3991,7 @@ only reads your own posts and returns `post_not_found`).
 
 | Input | Type | Default | Description |
 |---|---|---|---|
-| `member_user_id` | `string \| null` | null | Member User Id |
+| `member_user_id` | `string` | null | Member User Id |
 | `status` | `string` | `'scheduled'` | Status |
 | `limit` | `integer` | `20` | Limit |
 | `offset` | `integer` | `0` | Offset |
@@ -4279,7 +4080,7 @@ Parameters
 - idea: the idea itself, short (a topic, an angle, a hook). Max 2000
   characters.
 - notes: optional longer context kept with the idea (sources, angle,
-  anecdote, outline). Max 20000 characters.
+  anecdote, outline). Max 100000 characters.
 
 Returns
 -------
@@ -4291,7 +4092,7 @@ calling again, or the idea may be saved twice.
 |---|---|---|---|
 | `member_user_id` | `string` | — | Member User Id |
 | `idea` | `string` | — | Idea |
-| `notes` | `string \| null` | null | Notes |
+| `notes` | `string` | null | Notes |
 
 
 ---
@@ -4324,7 +4125,7 @@ reconnect: only they can, not you. Surface that hint verbatim.
 | `member_user_id` | `string` | — | Member User Id |
 | `post_id` | `string` | — | Post Id |
 | `at_iso` | `string` | — | At Iso |
-| `timezone` | `string \| null` | null | Timezone |
+| `timezone` | `string` | null | Timezone |
 | `confirm_same_day` | `boolean` | `true` | Confirm Same Day |
 | `confirm_exact_slot` | `boolean` | `true` | Confirm Exact Slot |
 

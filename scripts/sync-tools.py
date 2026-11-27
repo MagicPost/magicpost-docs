@@ -8,8 +8,11 @@ tools, then regenerates mcp/tools.mdx as a single deterministic file.
 Usage:
     MAGICPOST_PAT=mp_xxx python scripts/sync-tools.py
 
-The PAT only needs to be valid — it's not stored. Use a dedicated key
-named "docs-sync" for this if you want to revoke it independently.
+The PAT only needs to be valid — it's not stored — but it must belong to an
+org admin whose organisation is not limited to analytics: tools/list is
+fitted to the caller (mcp_server/catalogue.py), and any other account gets a
+page without the organisation tools and the `member_user_id` inputs. Use a
+dedicated key named "docs-sync" for this if you want to revoke it independently.
 
 Run it whenever:
     - You add or rename a tool in mcp_server/tools/*.py
@@ -162,7 +165,14 @@ def render_tool_section(tool: dict[str, Any]) -> str:
         ptype = _schema_type(prop_schema)
         default = prop_schema.get("default")
         default_str = "—" if prop_name in required else _format_default(default)
-        desc = prop_schema.get("description") or prop_schema.get("title") or ""
+        # The server no longer serves Pydantic's generated `title` (dropped
+        # from tools/list to lighten the catalogue, mcp_server/catalogue.py):
+        # rebuild it the way Pydantic did, so an undocumented input keeps a label.
+        desc = (
+            prop_schema.get("description")
+            or prop_schema.get("title")
+            or prop_name.replace("_", " ").title()
+        )
         desc = escape_mdx(desc).replace("|", "\\|").replace("\n", " ")
         rows.append(f"| `{prop_name}` | `{ptype}` | {default_str} | {desc} |")
 

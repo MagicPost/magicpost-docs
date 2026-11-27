@@ -23,6 +23,7 @@ essentials/
 mcp/
   overview.mdx
   setup-claude-desktop.mdx
+  setup-claude-code.mdx
   setup-cursor.mdx
   media-attachments.mdx
   tools.mdx                # auto-generated, see scripts/sync-tools.py
@@ -47,8 +48,12 @@ git diff mcp/tools.mdx
 git commit -am "docs(tools): sync from MCP server"
 ```
 
-The PAT only needs `mcp:v1` scope. Use a dedicated key named `docs-sync` so
-you can revoke it independently.
+The PAT only needs `mcp:v1` scope, but it must belong to an **org admin**
+(an account that manages members of an organisation) whose organisation is
+not limited to analytics: `tools/list` is fitted to the caller, and any other
+account gets a page without the organisation tools and without the
+`member_user_id` inputs. Use a dedicated key named `docs-sync` so you can
+revoke it independently.
 
 When a REST endpoint changes (path, params, response shape), edit the
 matching `api-reference/<group>.mdx` by hand — these are written manually for
