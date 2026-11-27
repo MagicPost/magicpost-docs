@@ -6,19 +6,27 @@ icon: "paperclip"
 
 MagicPost supports two media workflows:
 
-- `attach_media_to_post` copies a file reference supplied by a chat host such
-  as claude.ai;
+- `attach_media_to_post` copies a file reference supplied by a chat host, or
+  downloads a public `https://` link to the file (`media_url`);
 - `prepare_post_media_upload` and `complete_post_media_upload` let code and CLI
   clients upload bytes from their local filesystem.
 
-Both workflows link one file to an existing draft. You can then schedule or
+Each call links one file to an existing draft. You can then schedule or
 publish the post with its media.
 
-Organisation `super_admins` can use the same workflows for a team member:
+When neither works (claude.ai, or a file the user only has on their computer
+or phone), `create_media_drop_link` gives the user a temporary link where they
+drop the files from their browser. A visual or a carousel the assistant
+designs itself goes through `attach_html_slides`, and a file already in the
+user's media library through `attach_library_media_to_post`.
 
-1. Call `create_member_post` with the member's `member_user_id`.
+Organisation admins can use the same workflows on a member's draft:
+
+1. Create the draft with `create_member_post` and the member's
+   `member_user_id` (`create_or_update_post` only edits a member's draft).
 2. Pass the returned `post_id` and the same `member_user_id` to the media tool.
-3. Call `schedule_member_post` with that member and post.
+3. Schedule it with `schedule_member_post` (or `schedule_post` with the same
+   `member_user_id`).
 
 ## Chat-host workflow
 
@@ -106,22 +114,27 @@ curl --fail-with-body --request PUT \
 | Videos | MP4, MOV, AVI, WebM, WMV | 200 MB |
 | Documents | PDF | 100 MB |
 
-Only one file can be attached to a post through either workflow.
+A post holds up to 9 images, shown by LinkedIn as a multi-image post: attach
+them one per call with `append=True`. A video or a PDF must be the only media
+of its post.
 
 ## Draft requirements
 
 The target post must:
 
-- belong to your MagicPost account, or to a current member of your
-  organisation when you are a `super_admin`;
+- belong to your MagicPost account, or to a member of your organisation you
+  manage as an org admin (pass their `member_user_id`);
 - be unpublished and not currently publishing;
 - be unscheduled;
-- have no poll;
-- have no existing media.
+- have no poll.
 
 If the draft is already scheduled, ask the client to cancel the schedule,
-attach the media, then schedule it again. The tool does not replace or remove
-existing media.
+attach the media, then schedule it again.
+
+If the draft already has media, pass `append=True` to add an image after the
+existing ones, or `replace_existing=True` to replace all attachments (the post
+and its scheduled comments are kept). `update_post_media` changes the alt text
+or title of an attachment, and `remove_post_media` removes one or all of them.
 
 ## Client compatibility
 
@@ -129,9 +142,12 @@ MagicPost declares `media_file` as a file input for MCP hosts that support
 chat-provided files. File attachment behavior still depends on the host and its
 MCP integration.
 
-For claude.ai and compatible ChatGPT clients, attach the file to the same
-conversation and explicitly ask the assistant to use it with
-`attach_media_to_post`.
+claude.ai does not pass chat attachments, nor files created in its sandbox,
+to MCP tools. There, ask the assistant for a drop link
+(`create_media_drop_link`), give it a public link to the file, or let it design
+the visual with `attach_html_slides`. With ChatGPT clients that pass files to
+apps, attach the file to the same conversation and explicitly ask the
+assistant to use it with `attach_media_to_post`.
 
 Claude Code and CLI hosts do not pass local paths to a remote MCP server. They
 must use the `prepare_post_media_upload` / `complete_post_media_upload` workflow
@@ -145,8 +161,10 @@ MagicPost validates the file type, size, MIME type, and signature before
 linking the stored copy to your draft. Temporary and signed URLs are not stored
 in the post or included in tool audit data.
 
-The MCP cannot browse your MagicPost media library or retrieve media from past
-posts.
+To reuse a file already stored in MagicPost, `list_media_library` lists the
+media library and `attach_library_media_to_post` attaches one of its files to
+a draft without uploading it again. `duplicate_post` copies a past post,
+media included by default, into a new draft.
 
 ## Common errors
 
@@ -158,8 +176,8 @@ posts.
 | Upload validation failed | Verify the extension, MIME type, size, and actual file contents. |
 | Unsupported type or file too large | Convert or compress the file to a supported format and size. |
 | Post is scheduled | Cancel the schedule, attach the file, then schedule it again. |
-| Post already has media | Use a different draft or edit the media in the MagicPost web app. |
-| Post contains a poll | Remove the poll in the MagicPost web app or use a separate draft. |
+| Post already has media | Pass `append=True` to add an image, or `replace_existing=True` to replace the existing media. |
+| Post contains a poll | Remove the poll (`create_or_update_post` with `remove_poll=True`) or use a separate draft. |
 
 ## Tool details
 

@@ -30,6 +30,25 @@ There is one exception: the `/api/v1/api-keys/*` management endpoints (used
 by the MagicPost web UI) use **cookie session auth** instead. You can't use
 these from a script — generate keys from the web UI.
 
+## Acting for a member of your organisation
+
+An administrator of an Agency or Team organisation can call most endpoints on
+behalf of a member by adding the member's id (`user_record_id` from
+`GET /org/members`) in the `X-MagicPost-Member-Id` header. The request then
+runs on the member's account, with the same rights as switching to that
+account in the app: the member's plan, quotas, credits and LinkedIn
+connection apply. Rate limits stay those of your token.
+
+```bash
+curl https://api.magicpost.in/api/v1/posts \
+  -H "Authorization: Bearer mp_xxx" \
+  -H "X-MagicPost-Member-Id: recXXXXXXXXXXXXXX"
+```
+
+An endpoint that cannot act for a member (billing, credits history, CRM
+connections, API keys, organisation management) answers
+`400 member_scope_not_supported`; a member outside your scope answers `404`.
+
 ## Response shape
 
 Success responses are tailored to each endpoint. Error responses follow a
