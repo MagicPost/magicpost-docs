@@ -3903,7 +3903,7 @@ Actions:
 
 List the active members of your organisation.
 
-Only callable by org super_admins. Returns name, email, status,
+Only callable by organisation admins. Returns name, email, status,
 whether each member is themselves an org_admin, and whether their
 LinkedIn account is currently connected to MagicPost.
 
@@ -4010,7 +4010,7 @@ from `list_org_member_posts`) and need its full content/metadata
 record also carries `media_type` and `thumbnail_url`, with the same
 meaning as in `list_org_member_posts`.
 
-Only callable by org super_admins. Both arguments are REQUIRED:
+Only callable by organisation admins. Both arguments are REQUIRED:
   - `member_user_id`: the post owner's user id, exactly as returned by
     `list_org_members` (`user_record_id`) or `list_org_member_posts`.
     It must be a member of YOUR org.
@@ -4048,7 +4048,7 @@ returns `post_not_found` for a teammate's post.
 
 Create a draft owned by a specific organisation member.
 
-Only callable by org super_admins. Get `member_user_id` from
+Only callable by organisation admins. Get `member_user_id` from
 `list_org_members`. The returned `post_id` belongs to that member and
 can be passed to `schedule_member_post`.
 
@@ -4069,7 +4069,7 @@ Save a post idea to the Idea notebook of a specific organisation
 member, to write later. The idea appears at the top of THAT member's
 notebook backlog, like an idea they typed in the app.
 
-Only callable by org super_admins. Get `member_user_id` from
+Only callable by organisation admins. Get `member_user_id` from
 `list_org_members`. Use this when the user asks to add an idea to a
 client's / teammate's notebook: do NOT create a draft post instead.
 For the caller's own notebook, use `add_idea_to_notebook`. For
@@ -4101,7 +4101,7 @@ calling again, or the idea may be saved twice.
 
 Schedule a post on behalf of an org member.
 
-Only callable by org super_admins. The post must belong to
+Only callable by organisation admins. The post must belong to
 `member_user_id` (you can't move someone else's post by accident).
 
 Defaults:
