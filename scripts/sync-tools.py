@@ -7,6 +7,10 @@ tools, then regenerates mcp/tools.mdx as a single deterministic file.
 
 Usage:
     MAGICPOST_PAT=mp_xxx python scripts/sync-tools.py
+    python scripts/sync-tools.py --from tools.json   # local backend, before deploy
+
+`tools.json` is the `tools` array of tools/list as an org admin, dumped from
+the backend repo: `PYTHONPATH=. python scripts/dump_mcp_tools.py tools.json`.
 
 The PAT only needs to be valid — it's not stored — but it must belong to an
 org admin whose organisation is not limited to analytics: tools/list is
@@ -54,7 +58,7 @@ CATEGORIES: dict[str, list[str]] = {
         "attach_media_to_post", "prepare_post_media_upload",
         "complete_post_media_upload", "update_post_media", "remove_post_media",
         "create_media_drop_link", "attach_html_slides", "score_post",
-        "delete_post", "duplicate_post", "manage_labels", "import_linkedin_post",
+        "delete_post", "duplicate_post", "list_labels", "manage_labels", "import_linkedin_post",
         "search_mentions", "list_recent_mentions",
     ],
     "Scheduling & calendar": [
@@ -79,7 +83,7 @@ CATEGORIES: dict[str, list[str]] = {
         "engage_with_post", "list_engagement_queue", "cancel_queued_engagement",
         "get_engagement_feed", "get_engagement_activity", "manage_engagement_feed",
         "list_engagement_lists", "manage_engagement_list",
-        "manage_engagement_gesture", "manage_comment_bookmarks",
+        "manage_engagement_gesture", "list_comment_bookmarks", "manage_comment_bookmarks",
         "get_engagement_recommendations",
     ],
     "Analytics & insights": [
@@ -94,7 +98,7 @@ CATEGORIES: dict[str, list[str]] = {
         "suggest_icps", "create_icp", "update_icp", "get_icp", "manage_icp",
         "score_icp_leads", "manage_icp_leads", "preview_icp_audience",
         "list_lead_exclusions", "manage_lead_exclusions", "get_lead_credit_history",
-        "manage_crm_connections", "send_leads_to_crm",
+        "list_crm_connections", "manage_crm_connections", "send_leads_to_crm",
     ],
     "Org / team": [
         "list_org_members", "get_org_metrics_summary", "list_org_member_posts",
@@ -314,12 +318,16 @@ icon: "wrench"
 
 
 def main() -> int:
-    pat = os.environ.get("MAGICPOST_PAT")
-    if not pat:
-        print("error: MAGICPOST_PAT env var is required", file=sys.stderr)
-        return 1
-
-    tools = fetch_tools(pat)
+    # `--from <file>`: a tools/list result already dumped (the `tools` array),
+    # e.g. from a local backend before it is deployed, as an org admin.
+    if len(sys.argv) == 3 and sys.argv[1] == "--from":
+        tools = json.loads(Path(sys.argv[2]).read_text(encoding="utf-8"))
+    else:
+        pat = os.environ.get("MAGICPOST_PAT")
+        if not pat:
+            print("error: MAGICPOST_PAT env var (or --from <tools.json>) is required", file=sys.stderr)
+            return 1
+        tools = fetch_tools(pat)
     if not tools:
         print("error: MCP server returned no tools", file=sys.stderr)
         return 1

@@ -613,15 +613,26 @@ only media.
 
 ---
 
+## list_labels
+
+The user's post labels (colored tags of posts and notebook ideas):
+`{id, name, color, post_count}`, the limit (30) and the colors. With
+`post_id` (a MagicPost post UUID), also `post_label_ids`, the labels
+on that post. Changes: manage_labels.
+
+| Input | Type | Default | Description |
+|---|---|---|---|
+| `post_id` | `string` | null | Post Id |
+| `member_user_id` | `string` | null | Org admins only: act on this member's account (`user_record_id` from list_org_members), as if switched to it in the app. Omit for your own account. |
+
+
+---
+
 ## manage_labels
 
-The user's post labels, the colored tags of the MagicPost editor and
-"My posts". The same labels tag Idea notebook ideas (`label_ids` of
-manage_notebook_idea).
+Change the user's post labels (read with list_labels). The same
+labels tag notebook ideas (`label_ids` of manage_notebook_idea).
 
-- "list": the labels `{id, name, color, post_count}`, the limit (30)
-  and the colors. With `post_id` (a MagicPost post UUID), also
-  `post_label_ids`, the labels on that post.
 - "create": a label named `name` (64 characters max, unique ignoring
   case). `color` is optional (default: the first color not used yet).
   Colors are French names: rouge (red), orange, jaune (yellow),
@@ -1399,7 +1410,9 @@ Three modes, one per call:
   `profile_url`, `status`: loading while being added, success,
   warning when no post could be read, failed). `limits` gives the
   account's caps (`max_lists`, `max_profiles_per_list`, and, on a
-  free trial, `max_tracked_profiles` and usage). `list_id`: one list.
+  free trial, `max_tracked_profiles` and usage). `list_id`: one list,
+  plus `sync` (profiles active, quiet, silent, synced in the last 2, 6,
+  24 h), to show before a sync.
   `include_creators=false`: names and counts only.
 - `search`: a name ("Jane Doe", "Acme") or a LinkedIn link
   (https://www.linkedin.com/in/jane-doe). Returns people and pages
@@ -1457,9 +1470,6 @@ Actions:
   other list stops being followed.
 - `dismiss_suggestion` / `restore_suggestion`: `urn` (the suggestion's
   `public_urn`) to hide from, or show again in, suggestions.
-- `sync_preview`: `list_id`. How many profiles of the list are active,
-  quiet or silent, and how many were synced in the last 2, 6 or 24
-  hours. Costs nothing: call it before `sync` to tell the user.
 - `sync`: `list_id`. Fetches the latest posts of the list's profiles
   now, in the background (about 15 s per profile), like "Sync the
   list" in the app. Active profiles are always synced;
@@ -1468,8 +1478,8 @@ Actions:
   synced that recently. Returns `selected` (profiles being synced).
   One sync per list every 10 minutes (`sync_cooldown` with
   `retry_after_seconds`, or `sync_already_running`: do not retry).
-  list_engagement_lists shows `is_syncing` and `last_synced_at`;
-  read the feed once it is done.
+  list_engagement_lists(list_id=...) gives the counts to show first,
+  `is_syncing` and `last_synced_at`; read the feed once done.
 
 Free trial accounts have caps (lists, profiles per list, followed
 profiles). A refusal has `error_type`
@@ -1545,17 +1555,29 @@ with delete_post_comment, not here.
 
 ---
 
+## list_comment_bookmarks
+
+The user's saved comments: reusable comment texts (optional image)
+for others' posts (`source` "engagement") or comments under their own
+posts (`source` "my_posts"), most used first.
+
+To post one, pass its text to engage_with_post. Changes:
+manage_comment_bookmarks.
+
+| Input | Type | Default | Description |
+|---|---|---|---|
+| `source` | `string` | null | Source |
+| `member_user_id` | `string` | null | Org admins only: act on this member's account (`user_record_id` from list_org_members), as if switched to it in the app. Omit for your own account. |
+
+
+---
+
 ## manage_comment_bookmarks
 
-The user's saved comments in MagicPost: reusable comment texts
-(with an optional image) offered when commenting on others' posts
-(`source` "engagement") or scheduling comments under their own posts
-(`source` "my_posts").
+Change the user's saved comments (read with
+list_comment_bookmarks).
 
 Actions:
-- `list`: all bookmarks, most used first (`source` filters). The first
-  read of an empty list fills it from the user's past comments, like
-  the app.
 - `create`: `text` (max 1250), optional `name` (generated from the
   text otherwise), `source` (default my_posts), `media_url`.
 - `update`: `bookmark_id` and the fields to change; `remove_media=true`
@@ -1566,7 +1588,6 @@ Actions:
 
 `media_url` must be an image already stored by MagicPost (the
 `media_url` of another bookmark or of a comment).
-To post a saved comment, pass its text to engage_with_post.
 
 | Input | Type | Default | Description |
 |---|---|---|---|
@@ -1748,13 +1769,14 @@ Returns
 source, category, post_type, elements, label_ids, labels,
 attachments: [{id, name, mime, size_bytes, kind}], client_visible,
 author, listed_for_client, created_at, updated_at}], total, has_more,
-columns, labels, post_types, categories}`. Long notes are cut to
-their first 2000 characters here (`notes_truncated: true`):
-get_notebook_idea returns them in full.
+columns, notebook_default_client_visible, labels, post_types,
+categories}`. Long notes are cut to their first 2000 characters here
+(`notes_truncated: true`): get_notebook_idea returns them in full.
 `columns` lists the board columns `{id, label}` (column "used" = the
-idea was already used); `labels` the account's labels `{id, name,
-color}`. `client_visible` / `listed_for_client` only matter on a
-notebook shared with an agency client or for approval.
+idea was already used), `notebook_default_client_visible` (new ideas
+shown to the agency client); `labels` the account's labels `{id,
+name, color}`. `client_visible` / `listed_for_client` only matter on
+a notebook shared with an agency client or for approval.
 
 | Input | Type | Default | Description |
 |---|---|---|---|
@@ -1899,12 +1921,11 @@ upload ticket for "prepare_upload", or `{deleted}`.
 
 ## manage_notebook_columns
 
-Read or change the columns of the user's notebook board, and the
-notebook setting "new ideas visible to the client".
+Change the columns of the user's notebook board and the setting
+"new ideas visible to the client" (read with list_notebook_ideas).
 
 Actions
 -------
-- "get": the columns `{id, label}` and the setting.
 - "add": a new column named `label`, placed before "used".
 - "rename": give column `column_id` the name `label`.
 - "remove": delete column `column_id`; its ideas move to the first
@@ -3058,6 +3079,11 @@ Filters (all optional, omitted = no filter)
 - gender: 'all' (default), 'f' or 'm'.
 - profile_flags: profiles must have ALL listed flags.
 - followers_min / followers_max: LinkedIn follower bounds.
+- revenue_min / revenue_max: company annual revenue in euros, one of
+  250000, 500000, 1000000, 2000000, 5000000, 10000000, 20000000,
+  50000000, 100000000, 250000000, 500000000, 1000000000. Estimated
+  from headcount, industry and country: only a company clearly too
+  small is dropped. Convert other currencies first.
 A value the app does not know is refused with `error_type:
 'invalid_filter_values'`, `invalid_values` and the full
 `allowed_values`: fix the values from that list, never drop the
@@ -3097,6 +3123,8 @@ profile URL).
 | `profile_flags` | `array` | null | Profile Flags |
 | `followers_min` | `integer` | null | Followers Min |
 | `followers_max` | `integer` | null | Followers Max |
+| `revenue_min` | `integer` | null | Revenue Min |
+| `revenue_max` | `integer` | null | Revenue Max |
 | `for_org` | `boolean` | `false` | For Org |
 | `member_ids` | `array` | null | Member Ids |
 | `all_members` | `boolean` | `false` | All Members |
@@ -3122,7 +3150,7 @@ included); [] clears it.
   of this ICP as outdated.
 - Filters: same parameters and allowed values as `create_icp`.
   followers_min=0 removes the minimum, followers_max=0 removes the
-  maximum.
+  maximum; same for revenue_min / revenue_max.
 - strong_keywords / weak_keywords: words or phrases found in a lead's
   headline, job, about or company description that signal a fit
   (strong) or a likely fit (weak). anti_keywords: words that rule a
@@ -3166,6 +3194,8 @@ wait and retry), `invalid_filter_values` (400, fix from
 | `profile_flags` | `array` | null | Profile Flags |
 | `followers_min` | `integer` | null | Followers Min |
 | `followers_max` | `integer` | null | Followers Max |
+| `revenue_min` | `integer` | null | Revenue Min |
+| `revenue_max` | `integer` | null | Revenue Max |
 | `strong_keywords` | `array` | null | Strong Keywords |
 | `weak_keywords` | `array` | null | Weak Keywords |
 | `anti_keywords` | `array` | null | Anti Keywords |
@@ -3330,6 +3360,8 @@ cannot be previewed and come back in `ignored_industries`.
 | `profile_flags` | `array` | null | Profile Flags |
 | `followers_min` | `integer` | null | Followers Min |
 | `followers_max` | `integer` | null | Followers Max |
+| `revenue_min` | `integer` | null | Revenue Min |
+| `revenue_max` | `integer` | null | Revenue Max |
 | `limit` | `integer` | `12` | Limit |
 | `member_user_id` | `string` | null | Org admins only: act on this member's account (`user_record_id` from list_org_members), as if switched to it in the app. Omit for your own account. |
 
@@ -3656,35 +3688,61 @@ _No inputs._
 
 ---
 
+## list_crm_connections
+
+Read the connected tools of the Leads page (CRMs and webhooks that
+receive the user's leads). A connection is a tool account; a route
+(`destination_id`) is a sending rule: where leads go in it and which
+go there after each detection.
+
+Views:
+- `connections` (default): connections, routes, health
+  (`last_test_status`, `last_delivery_error_kind`), and the tools that
+  can be connected.
+- `resources`: `connection_id` and `kind` (Lemlist: campaigns;
+  HubSpot: owners, lead_statuses; Pipedrive: users, labels, fields;
+  ReachBoost: lead_lists, campaigns), read from the tool: ids for
+  `route_config`.
+- `deliveries`: `connection_id`, optional `destination_id`, `status`,
+  `limit`, `offset`: leads sent by this tool, per-route counts and
+  errors.
+
+Changes: manage_crm_connections.
+
+| Input | Type | Default | Description |
+|---|---|---|---|
+| `view` | `string` | `'connections'` | View |
+| `connection_id` | `string` | null | Connection Id |
+| `kind` | `string` | null | Kind |
+| `destination_id` | `string` | null | Destination Id |
+| `status` | `string` | null | Status |
+| `limit` | `integer` | `50` | Limit |
+| `offset` | `integer` | `0` | Offset |
+
+
+---
+
 ## manage_crm_connections
 
-The connected tools of the Leads page: CRMs and webhooks that
-receive the user's leads. A connection is a tool account (one per
-tool); a route (sending rule, `destination_id`) says where leads go in
-it (Lemlist campaign, HubSpot or Pipedrive owner, ReachBoost list) and
-which leads go there automatically after each detection.
+Change the connected tools of the Leads page (CRMs, webhooks) and
+their routes (read with list_crm_connections).
 
 Actions:
-- `list`: connections with their routes, health (`last_test_status`,
-  route `last_delivery_error_kind`), and the tools that can be connected
-  with what each one needs.
 - `create_connect_link`: `provider`. Returns a link to the app where
   the user enters the key and tests the account. NEVER ask the user for
   an API key, token or webhook URL in the chat, and never accept one:
-  give the link (`url`) and relay `message_for_user`. Then call `list`
-  when the user says it is done.
+  give the link (`url`) and relay `message_for_user`. Then call
+  list_crm_connections when the user says it is done.
 - `test`: `connection_id`. Checks the stored credentials with the tool
   (`ok`, `provider_error`).
 - `disconnect`: `connection_id`. Also deletes its routes and their
   delivery history: the first call answers
   `disconnect_confirm_required`; tell the user and only after their
   explicit yes call again with `confirm=true`.
-- `list_resources`: `connection_id` and `kind` (Lemlist: campaigns;
-  HubSpot: owners, lead_statuses; Pipedrive: users, labels, fields;
-  ReachBoost: lead_lists, campaigns). Use it to fill `route_config`.
 - `create_route`: `connection_id`, `route_config`, optional `label`,
   `enabled`, `min_level` (A, B or C: lowest level sent automatically),
-  `icp_ids` (empty = all ICPs), `require_email`. `route_config` by tool:
+  `icp_ids` (empty = all ICPs), `require_email`. `route_config` by tool
+  (ids from list_crm_connections view="resources"):
   Lemlist `{campaign_id, campaign_name, icebreaker_mode}`
   (icebreaker, key_quote, reasoning or none); HubSpot
   `{owner_id, lead_status}`; Pipedrive `{owner_id, label_id?,
@@ -3694,9 +3752,6 @@ Actions:
 - `update_route`: `destination_id` and the fields to change (same as
   create_route; `enabled=false` pauses it).
 - `delete_route`: `destination_id`. Confirm with the user first.
-- `list_deliveries`: `connection_id`, optional `destination_id`,
-  `status`, `limit`, `offset`: leads sent by this tool, per-route counts
-  (sent, failed, skipped, pending) and errors.
 
 To send leads now, use send_leads_to_crm.
 
@@ -3707,16 +3762,12 @@ To send leads now, use send_leads_to_crm.
 | `connection_id` | `string` | null | Connection Id |
 | `destination_id` | `string` | null | Destination Id |
 | `confirm` | `boolean` | `false` | Confirm |
-| `kind` | `string` | null | Kind |
 | `route_config` | `object` | null | Route Config |
 | `label` | `string` | null | Label |
 | `enabled` | `boolean` | null | Enabled |
 | `min_level` | `string` | null | Min Level |
 | `icp_ids` | `array` | null | Icp Ids |
 | `require_email` | `boolean` | null | Require Email |
-| `status` | `string` | null | Status |
-| `limit` | `integer` | `50` | Limit |
-| `offset` | `integer` | `0` | Offset |
 
 
 ---
@@ -3727,8 +3778,8 @@ Send leads of this account (`prospect_id` values from list_leads) to
 one route of a connected tool, like the "Send to my tools" action of
 the Leads page. Up to 200 leads per call.
 
-Target: `destination_id` (a route, from manage_crm_connections
-action="list"), or `connection_id` when that tool has a single active
+Target: `destination_id` (a route, from list_crm_connections), or
+`connection_id` when that tool has a single active
 route (`ambiguous_connection` otherwise: ask the user which one).
 
 Before anything is queued, each lead is checked: a lead in the user's
@@ -3739,8 +3790,8 @@ work around an exclusion. Route filters (level, ICP, email) do not
 apply: the user chose these leads.
 
 Sending is asynchronous (seconds to a minute). Relay
-`message_for_user`; check results with manage_crm_connections
-action="list_deliveries" or get_lead. Confirm the list of leads and the
+`message_for_user`; check results with list_crm_connections
+view="deliveries" or get_lead. Confirm the list of leads and the
 destination with the user before calling: leads land in their CRM.
 
 | Input | Type | Default | Description |
