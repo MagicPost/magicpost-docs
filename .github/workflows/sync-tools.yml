@@ -1,0 +1,71 @@
+name: Sync MCP tools
+
+# Regenerates mcp/tools.mdx and the tool counts from the production MCP server
+# (tools/list), so the catalog cannot fall behind a backend release again.
+# Needs the repository secret MAGICPOST_PAT: a MagicPost API key that belongs to
+# an organisation admin (see README, "Updating after a backend change").
+# Without the secret, the run does nothing.
+
+on:
+  schedule:
+    - cron: "17 5 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sync-tools
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Check that the key is configured
+        id: key
+        env:
+          MAGICPOST_PAT: ${{ secrets.MAGICPOST_PAT }}
+        run: |
+          if [ -z "$MAGICPOST_PAT" ]; then
+            echo "::warning::Secret MAGICPOST_PAT is not set: nothing was synced."
+            echo "present=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Regenerate the catalog
+        if: steps.key.outputs.present == 'true'
+        env:
+          MAGICPOST_PAT: ${{ secrets.MAGICPOST_PAT }}
+        run: |
+          before=$(grep -c '^## ' mcp/tools.mdx)
+          pip install --quiet "httpx>=0.28.1"
+          python scripts/sync-tools.py
+          after=$(grep -c '^## ' mcp/tools.mdx)
+          echo "Tools: $before -> $after"
+          # tools/list is fitted to the caller: a key that lost its admin role
+          # lists fewer tools. Never publish a shorter catalog unattended.
+          if [ "$after" -lt "$before" ]; then
+            echo "::error::The catalog would shrink ($before -> $after). Check the role of the key's account, or run scripts/sync-tools.py by hand if tools were really removed."
+            exit 1
+          fi
+
+      - name: Commit the changes
+        if: steps.key.outputs.present == 'true'
+        run: |
+          if git diff --quiet; then
+            echo "Already up to date."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "docs(tools): sync from MCP server"
+          git push

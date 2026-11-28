@@ -1,20 +1,67 @@
 ---
-title: "Claude Desktop"
-description: "Connect Claude Desktop to MagicPost in 3 steps."
+title: "Claude"
+description: "Connect Claude (claude.ai, the desktop app and mobile) to MagicPost by sign-in."
 icon: "message"
 ---
 
-Claude Desktop talks to MCP servers via stdio. Since MagicPost MCP is HTTP,
-we use the open-source [`mcp-remote`](https://www.npmjs.com/package/mcp-remote)
-bridge to convert stdio ↔ HTTP locally.
+Claude connects to MagicPost as a **custom connector**. You sign in once and
+the same connection works in claude.ai, in the desktop app and on mobile. No
+API key, nothing to install.
 
-## Prerequisites
+## Connect
 
-- macOS, Windows or Linux with Claude Desktop installed
-- [Node.js](https://nodejs.org) 18+ available on your PATH (`npx` needs it)
-- A MagicPost API key — see [creating a key](/essentials/authentication#creating-a-token)
+<Steps>
+  <Step title="Open the connectors">
+    In Claude, open **Settings → Connectors → Add custom connector**.
+  </Step>
+  <Step title="Paste the address">
+    ```
+    https://mcp.magicpost.in/mcp
+    ```
 
-## Configure
+    Name the connector `MagicPost` and confirm.
+  </Step>
+  <Step title="Log in to MagicPost">
+    A window opens: log in to MagicPost and authorize the connection. The
+    window closes and the connector shows as connected.
+  </Step>
+</Steps>
+
+In MagicPost, **Settings → API & MCP → Connect a tool → Claude** shows the same
+steps and tells you as soon as Claude is connected.
+
+## Verify
+
+Open a new conversation, check that MagicPost is enabled in the tools menu, and
+ask:
+
+```
+List my scheduled posts on MagicPost
+```
+
+Claude calls `list_my_posts` and reads back what is coming up. It lists up to
+{/* tools:count */}105{/* /tools:count */} tools, fewer if your account manages no member of an
+organisation (see [what your client lists](/mcp/overview#what-your-client-lists)).
+
+## Media in claude.ai
+
+claude.ai does not pass the files of a conversation to tools. Ask for the
+media in the chat: Claude gives you a private drop link for your own files, and
+attaches by itself the visuals and carousels it designs. See
+[Media, visuals and carousels](/mcp/media-attachments).
+
+## Disconnect
+
+In MagicPost, open **Settings → API & MCP** and disconnect Claude from your
+connections. You can also remove the connector in Claude's settings.
+
+## Alternative: an API key in the desktop config file
+
+If you prefer an API key to a sign-in, the desktop app can also reach
+MagicPost through the open-source
+[`mcp-remote`](https://www.npmjs.com/package/mcp-remote) bridge. You need
+[Node.js](https://nodejs.org) 18 or later and a
+[MagicPost API key](/essentials/authentication#creating-a-token).
 
 <Steps>
   <Step title="Locate the config file">
@@ -25,8 +72,6 @@ bridge to convert stdio ↔ HTTP locally.
     | Linux | `~/.config/Claude/claude_desktop_config.json` |
   </Step>
   <Step title="Add the MCP server block">
-    Open the file (create it if missing) and add a `mcpServers` entry:
-
     ```json
     {
       "mcpServers": {
@@ -43,54 +88,35 @@ bridge to convert stdio ↔ HTTP locally.
       }
     }
     ```
-
-    <Tip>
-      When you create the key from
-      [Settings → API & MCP](https://app.magicpost.in/account?tab=api-keys),
-      the dialog includes a copy-paste-ready version of this exact snippet
-      with the token already filled in.
-    </Tip>
   </Step>
   <Step title="Fully quit and relaunch Claude Desktop">
-    On macOS, **Cmd+Q** (not just close window). MCP servers are only loaded
-    at startup.
+    On macOS, **Cmd+Q** (not just closing the window). MCP servers of the
+    config file are only loaded at startup.
   </Step>
 </Steps>
 
-## Verify
-
-After relaunch, open a new conversation and click the tools indicator in the
-input bar. You should see `magicpost` listed with up to {/* tools:count */}105{/* /tools:count */} tools available
-(fewer if your account manages no member of an organisation, see
-[what your client lists](/mcp/overview#what-your-client-lists)).
-
-Try:
-
-```
-List my scheduled posts on MagicPost
-```
-
-Claude will call `list_my_posts` and read back what's coming up.
+`mcp-remote` runs on your machine and forwards calls to `mcp.magicpost.in`.
+Your key goes to no third party.
 
 ## Troubleshooting
 
 <AccordionGroup>
-  <Accordion title="The magicpost server doesn't appear in the tools list">
-    1. Open the Claude Desktop logs (Preferences → Developer → Open log directory)
-    2. Look for `mcp.log` or `claude_mcp.log`
-    3. Common causes:
-        - JSON syntax error in `claude_desktop_config.json` — validate it with `python -m json.tool claude_desktop_config.json`
-        - `npx` not on PATH — install Node via nvm or homebrew
-        - Network blocked — confirm you can `curl https://mcp.magicpost.in/.well-known/oauth-protected-resource`
-  </Accordion>
-  <Accordion title="Authentication error in the tool response">
-    The PAT is invalid or revoked. Generate a new one from
-    [Settings → API & MCP](https://app.magicpost.in/account?tab=api-keys)
-    and replace it in the config.
+  <Accordion title="The login window closed before the end">
+    Remove the connector in Claude's settings and add it again: the sign-in
+    restarts from the beginning.
   </Accordion>
   <Accordion title="Claude says it cannot reach MagicPost">
-    The MCP bridge might have crashed silently. Restart Claude Desktop. If
-    the issue persists, run the bridge manually to see its output:
+    Check that the connector is enabled in the conversation's tools menu. If it
+    is, disconnect it and connect again.
+  </Accordion>
+  <Accordion title="Authentication error with an API key">
+    The key is invalid or revoked. Create a new one from
+    [Settings → API & MCP](https://app.magicpost.in/account?tab=api-keys) and
+    replace it in the config file.
+  </Accordion>
+  <Accordion title="The server of the config file does not appear">
+    Validate the JSON (`python -m json.tool claude_desktop_config.json`), check
+    that `npx` is on your PATH, then run the bridge by hand to read its output:
 
     ```bash
     npx -y mcp-remote https://mcp.magicpost.in/mcp \
@@ -98,9 +124,3 @@ Claude will call `list_my_posts` and read back what's coming up.
     ```
   </Accordion>
 </AccordionGroup>
-
-## Privacy
-
-`mcp-remote` runs on **your machine** and forwards calls to `mcp.magicpost.in`.
-Your token never leaves your machine via a third party. The MagicPost MCP
-server validates it and acts on your behalf.

@@ -1,11 +1,35 @@
 ---
 title: "Authentication"
-description: "Personal Access Tokens (PATs) — how they work, where to use them, how to revoke them."
+description: "Sign-in for AI assistants, API keys for tools and code: how each works and how to revoke it."
 icon: "key"
 ---
 
-Every call to `/api/v1/*` and every MCP tool invocation must carry a
-**Personal Access Token** (PAT) in the `Authorization` header:
+There are two ways to authenticate, depending on what you connect:
+
+| You connect | How | Where it is used |
+|---|---|---|
+| An AI assistant (Claude, ChatGPT, Gemini, Perplexity, Grok, Mistral, Cursor, Claude Code, Codex) | **Sign-in (OAuth)**: no key to handle | The MCP server |
+| An automation tool (n8n, Zapier, Make) or your own code | **API key**, also called Personal Access Token (PAT) | The REST API and the MCP server |
+
+## Sign-in for AI assistants
+
+Paste the MCP address in your assistant and log in to MagicPost in the window
+that opens:
+
+```
+https://mcp.magicpost.in/mcp
+```
+
+MagicPost then issues a key for that assistant behind the scenes. You never see
+it, and the assistant appears in **Settings → API & MCP**, under **Your
+connections**, where you can disconnect it. See the [Quickstart](/quickstart)
+for the steps in each assistant.
+
+## API keys
+
+Every call to `/api/v1/*` made by a tool or a script must carry an API key in
+the `Authorization` header. The MCP server accepts the same header from clients
+that do not sign in:
 
 ```bash
 Authorization: Bearer mp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxx
@@ -26,11 +50,10 @@ to your MagicPost account as you do via the API.
 
 ## Creating a token
 
-From the web app: **Settings → API & MCP → Create a key**.
-
-The dialog asks for an optional **name** (e.g. `Claude Desktop`, `My Cursor`,
-`Internal cron script`). The name has no functional effect — it just helps
-you tell tokens apart in the list and audit which integration was active when.
+From the web app: **Settings → API & MCP → Connect a tool**. Under **Tools and
+code**, pick n8n, Zapier, Make or your own code, give the key a **name** (e.g.
+`Reporting script`) and click **Create key**. The name has no functional
+effect: it helps you find the key in your connections and revoke the right one.
 
 You can hold up to **10 active tokens** per account. Revoked tokens don't
 count against the limit but remain visible in the history.
@@ -39,8 +62,9 @@ count against the limit but remain visible in the history.
 
 ### With the MCP server
 
-In your MCP client config (Claude Desktop, Cursor, claude.ai), pass the token
-as a header via `mcp-remote`:
+AI assistants sign in, so they need no token (see above). For an MCP client
+that cannot sign in, pass the token as a header. With a client that only speaks
+stdio, use the `mcp-remote` bridge:
 
 ```json
 {
@@ -79,10 +103,10 @@ client.get("/posts", params={"status": "scheduled"})
 
 ## Revoking a token
 
-In **Settings → API & MCP**, hit **Revoke** on the token row. The change
-propagates within **60 seconds** (the MCP server caches token validity for
-that long, so a revoked token may still work for up to a minute after
-revocation).
+In **Settings → API & MCP**, under **Your connections**, hit **Revoke** on a
+key or **Disconnect** on an assistant. The change propagates within
+**60 seconds** (the MCP server caches token validity for that long, so a
+revoked token may still work for up to a minute after revocation).
 
 Revocation is irreversible. The MCP integration that uses that token will
 start receiving 401 responses — create a new token to replace it.
