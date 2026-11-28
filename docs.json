@@ -48,7 +48,8 @@
               "api-reference/metrics",
               "api-reference/posts",
               "api-reference/scheduling",
-              "api-reference/content"
+              "api-reference/content",
+              "api-reference/webhooks"
             ]
           }
         ]
