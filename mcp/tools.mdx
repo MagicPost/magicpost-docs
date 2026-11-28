@@ -3079,11 +3079,11 @@ Filters (all optional, omitted = no filter)
 - gender: 'all' (default), 'f' or 'm'.
 - profile_flags: profiles must have ALL listed flags.
 - followers_min / followers_max: LinkedIn follower bounds.
-- revenue_min / revenue_max: company annual revenue in euros, one of
-  250000, 500000, 1000000, 2000000, 5000000, 10000000, 20000000,
-  50000000, 100000000, 250000000, 500000000, 1000000000. Estimated
-  from headcount, industry and country: only a company clearly too
-  small is dropped. Convert other currencies first.
+- revenue_min / revenue_max: company annual revenue in euros
+  (convert other currencies), one of 15 steps from 250000 to
+  10000000000 (250000, 500000, 1000000, 2000000, 5000000, ...).
+  Estimated from headcount, industry and country: only a company
+  far too small is dropped.
 A value the app does not know is refused with `error_type:
 'invalid_filter_values'`, `invalid_values` and the full
 `allowed_values`: fix the values from that list, never drop the
