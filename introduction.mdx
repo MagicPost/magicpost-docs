@@ -10,7 +10,7 @@ or LLM client.
 
 <CardGroup cols={2}>
   <Card title="Quickstart" icon="play" href="/quickstart">
-    Connect Claude Desktop to your MagicPost account in 3 steps.
+    Connect your AI assistant to your MagicPost account in 3 steps, by sign-in.
   </Card>
   <Card title="MCP tools" icon="wrench" href="/mcp/tools">
     The {/* tools:count */}108{/* /tools:count */} tools available to your LLM client.
@@ -19,7 +19,7 @@ or LLM client.
     Raw REST endpoints with curl examples.
   </Card>
   <Card title="Authentication" icon="key" href="/essentials/authentication">
-    How API keys work, scopes, rotation.
+    Sign-in for assistants, API keys for tools and code.
   </Card>
 </CardGroup>
 
@@ -42,10 +42,10 @@ the account of a member they manage, as if they had switched to it in the app
 ## Two ways to use it
 
 <AccordionGroup>
-  <Accordion title="MCP — for LLM clients (Claude Desktop, Cursor, claude.ai)" icon="robot">
-    The MCP server at `mcp.magicpost.in` exposes the API as **tools** your LLM
-    can call. The recommended way for users who want to operate MagicPost from
-    inside a conversation.
+  <Accordion title="MCP: for AI assistants (Claude, ChatGPT, Gemini, Cursor and others)" icon="robot">
+    The MCP server at `mcp.magicpost.in` exposes the API as **tools** your
+    assistant can call. You connect by sign-in, without an API key. The
+    recommended way to operate MagicPost from inside a conversation.
 
     [→ See MCP setup](/mcp/overview)
   </Accordion>
@@ -62,6 +62,9 @@ the account of a member they manage, as if they had switched to it in the app
 
 - **Base URL** (production): `https://api.magicpost.in`
 - **MCP endpoint**: `https://mcp.magicpost.in/mcp`
-- **Authentication**: Personal Access Tokens (PATs), generated from
+- **MCP Registry**: `io.github.MagicPost/linkedin-mcp-server`, with examples and
+  prompts in the [GitHub repository](https://github.com/MagicPost/linkedin-mcp-server)
+- **Authentication**: sign-in (OAuth) for AI assistants, API keys for tools
+  and code, both managed from
   [your account settings](https://app.magicpost.in/account?tab=api-keys)
 - **Versioning**: only `v1` exists today. Breaking changes will ship under `v2`.

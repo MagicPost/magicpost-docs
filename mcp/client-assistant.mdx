@@ -1,0 +1,113 @@
+---
+title: "Client assistant"
+description: "Let an agency's client connect their own AI assistant to their MagicPost client space, with the rights of their link."
+icon: "handshake"
+---
+
+An agency shares a **client space** with each client: a link where the client
+reads, comments and approves the posts written for them. With the **Assistant**
+module, the client can also plug their own assistant (Claude or ChatGPT, for
+example) into that space and do the same things from a conversation.
+
+This is a second, smaller MCP catalogue. It is separate from the main server at
+`https://mcp.magicpost.in/mcp`, which serves MagicPost accounts and the
+organisation admins who manage them.
+
+| | Main MCP server | Client assistant |
+|---|---|---|
+| Who connects | A MagicPost account | The client of an agency, without an account |
+| Address | `https://mcp.magicpost.in/mcp` | `https://mcp.magicpost.in/mcp/c/<key>` |
+| Authentication | Sign-in (OAuth) or API key | The key inside the address |
+| Tools | {/* tools:count */}108{/* /tools:count */} | 13 |
+| Rights | Those of the account | Those of the client space link |
+
+## Turn it on (agency)
+
+The **Assistant** module is available to agencies and is off by default for
+every client space. The agency turns it on for the spaces that should have it.
+Turning on all the modules of a space at once does not include it.
+
+While the module is off, no connection address can be created and existing
+ones stop answering.
+
+## Connect an assistant (client)
+
+<Steps>
+  <Step title="Create a connection address">
+    In the client space, open **Connect an assistant** and create a connection
+    address. MagicPost shows a name to give the connector and its address.
+    Copy the address right away: it is shown only once.
+  </Step>
+  <Step title="Add it to the assistant">
+    <Tabs>
+      <Tab title="Claude">
+        Open **Settings → Connectors → Add custom connector**, paste the name
+        and the address, then confirm.
+      </Tab>
+      <Tab title="ChatGPT">
+        In the settings, add a custom MCP connector, paste the name and the
+        address, then select **No authentication**.
+      </Tab>
+    </Tabs>
+  </Step>
+  <Step title="Ask">
+    "What is waiting for my approval?" The assistant lists the posts of the
+    space and what it is allowed to do with them.
+  </Step>
+</Steps>
+
+There is no login window: the key inside the address is what identifies the
+client space.
+
+<Warning>
+  The address contains the key. Treat it like a password: anyone who has it can
+  act in the client space with the rights of its link. If it leaks, revoke it
+  and create a new one.
+</Warning>
+
+## What the assistant can do
+
+The assistant has the rights of the link, never more. It only lists the tools
+the space allows, and MagicPost checks the rights again on every call.
+
+| Tool | What it does | Needs |
+|---|---|---|
+| `get_workspace` | Whose space it is and what the connection may do: rights, modules, timezone | |
+| `list_posts` | List the posts: to approve first, then scheduled, drafts and published | Calendar |
+| `get_post` | One post in full: text, status, media, poll, comments, and statistics once published | Calendar |
+| `comment_on_post` | Add a comment on a post, or reply to one. The agency sees it | Calendar |
+| `resolve_post_comment` | Mark a comment thread the client started as resolved, or reopen it | Calendar |
+| `approve_post` | Approve a post, or withdraw an approval | Approval mode |
+| `create_post` | Create a draft from its text (2 words to 3,000 characters) | Edit link |
+| `update_post` | Replace the text of a post | Edit link |
+| `schedule_post` | Schedule a post for a future date and time | Edit link |
+| `unschedule_post` | Cancel a schedule: the post stays as a draft | Edit link |
+| `list_ideas` | List the ideas of the notebook | Ideas |
+| `save_idea` | Add an idea to the notebook, or edit one that is not used yet | Ideas |
+| `get_stats` | Statistics of the published posts, and followers gained | Statistics |
+
+A few rules the assistant follows:
+
+- **Approval is explicit.** `approve_post` is only called when the user asks to
+  approve that specific post. Approving can let a scheduled post go out.
+- **No silent overwrite.** `update_post` needs the revision of the text it read
+  (`content_rev` from `get_post`). If the text changed in the meantime, nothing
+  is saved and the assistant gets the current text to show the user
+  (`content_conflict`).
+- **Scheduling uses the timezone of the space.** `date` and `time` are read in
+  the timezone given by `get_workspace`, and a moment in the past is refused.
+- **Activity is attributed.** What the client does through the assistant shows
+  in the agency's activity log and approval notifications as done via the
+  assistant.
+
+Engagement, leads and the media library are not part of this catalogue.
+
+## Revoke an address
+
+A client space holds up to 5 active connection addresses. The client or the
+agency can revoke one at any time, and an address stops answering as soon as
+its link does: link disabled, expired or regenerated, client removed, module
+turned off.
+
+An assistant that was listing tools may keep showing them for about a minute
+after a revocation. No call returns data during that time.

@@ -1,0 +1,62 @@
+---
+title: "ChatGPT, Gemini and other assistants"
+description: "Connect ChatGPT, Gemini, Perplexity, Grok, Mistral or Codex to MagicPost by sign-in."
+icon: "plug"
+---
+
+Any assistant that accepts a **custom MCP connector** can work with MagicPost.
+The connection is a sign-in: no API key to create, nothing to install.
+
+MagicPost lists these assistants under **Settings → API & MCP → Connect a
+tool**: Claude, ChatGPT, Gemini, Perplexity, Grok, Mistral, Cursor, Claude Code
+and Codex. [Claude](/mcp/setup-claude-desktop),
+[Claude Code](/mcp/setup-claude-code) and [Cursor](/mcp/setup-cursor) have
+their own page. The others follow the same three steps.
+
+## Connect
+
+<Steps>
+  <Step title="Add a custom MCP connector">
+    In the settings of your assistant (ChatGPT, Gemini, Perplexity, Grok,
+    Mistral or Codex), add a custom MCP connector. Its menus change often, so
+    look for "connectors", "apps" or "MCP servers".
+  </Step>
+  <Step title="Paste the address and choose OAuth">
+    ```
+    https://mcp.magicpost.in/mcp
+    ```
+
+    When the assistant asks how to authenticate, choose the OAuth connection.
+  </Step>
+  <Step title="Log in to MagicPost">
+    Log in to MagicPost in the window that opens and authorize the connection.
+  </Step>
+</Steps>
+
+In MagicPost, the **Connect a tool** window tells you as soon as the assistant
+is connected. It then appears in your connections under **Settings → API &
+MCP**, where you can disconnect it.
+
+<Note>
+  Custom connectors are not available on every plan of every assistant. If the
+  option is missing from the settings, check the assistant's own documentation
+  for its requirements.
+</Note>
+
+## What the assistant can do
+
+The same {/* tools:count */}108{/* /tools:count */} tools as any other client: write and schedule
+posts, attach media, reply to comments, engage with other posts, find leads and
+read analytics. An organisation admin can do all of it for the accounts they
+manage (see [Acting for a member](/mcp/overview#acting-for-a-member-of-your-organisation)).
+
+For media, assistants that hand conversation files to tools can attach them
+directly. The others use a drop link. See
+[Media, visuals and carousels](/mcp/media-attachments).
+
+## Automation tools and your own code
+
+n8n, Zapier, Make and scripts do not sign in: they use an API key, sent as
+`Authorization: Bearer mp_...` to the [REST API](/api-reference/overview) or to
+the MCP endpoint. Create one under **Settings → API & MCP → Connect a tool**,
+and see [Authentication](/essentials/authentication).

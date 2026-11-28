@@ -14,12 +14,10 @@ LLM in the loop.
 https://api.magicpost.in/api/v1
 ```
 
-(Staging: `https://apistaging.magicpost.in/api/v1`)
-
 ## Authentication
 
-All endpoints require a Bearer token in the `Authorization` header — see
-[Authentication](/essentials/authentication) for how to create one.
+All endpoints require an API key as a Bearer token in the `Authorization`
+header. See [Authentication](/essentials/authentication) for how to create one.
 
 ```bash
 curl https://api.magicpost.in/api/v1/auth/verify \
@@ -81,6 +79,9 @@ HTTP 429.
   </Card>
   <Card title="Comments, AI score and ideas" icon="comments" href="/api-reference/content">
     First comment, received comments, AI score, idea notebook.
+  </Card>
+  <Card title="Organisation" icon="users" href="/api-reference/organization">
+    Members, team metrics and team posts, for organisation admins.
   </Card>
 </CardGroup>
 

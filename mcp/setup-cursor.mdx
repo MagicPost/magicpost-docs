@@ -1,61 +1,69 @@
 ---
 title: "Cursor"
-description: "Connect Cursor to MagicPost via MCP."
+description: "Connect Cursor to MagicPost by sign-in, with one block in mcp.json."
 icon: "terminal"
 ---
 
-Cursor 0.46+ ships with native MCP support. Both **stdio** and **streamable
-HTTP** transports are supported, so you have two options.
+Cursor connects to the remote MagicPost MCP server over streamable HTTP and
+signs you in through the browser. No API key, no local bridge.
 
-## Option A — Native HTTP (recommended)
+## Connect
 
 <Steps>
-  <Step title="Open Cursor Settings">
-    Cursor → Settings → **Features** → **MCP** → **+ Add new MCP server**.
+  <Step title="Add the server to mcp.json">
+    Open `~/.cursor/mcp.json` (or `.cursor/mcp.json` in a project) and add:
+
+    ```json
+    {
+      "mcpServers": {
+        "magicpost": {
+          "url": "https://mcp.magicpost.in/mcp"
+        }
+      }
+    }
+    ```
   </Step>
-  <Step title="Fill the form">
-    | Field | Value |
-    |---|---|
-    | **Name** | `magicpost` |
-    | **Type** | `streamable-http` |
-    | **URL** | `https://mcp.magicpost.in/mcp` |
-    | **Headers** | `Authorization: Bearer mp_YOUR_TOKEN` |
+  <Step title="Log in to MagicPost">
+    Cursor asks you to sign in: log in to MagicPost in the window that opens
+    and authorize the connection.
   </Step>
-  <Step title="Save and reload">
-    Cursor connects on save. The server row shows the number of tools loaded: up to {/* tools:count */}108{/* /tools:count */}, fewer if your account manages no member of an organisation (see [what your client lists](/mcp/overview#what-your-client-lists)).
+  <Step title="Check the server">
+    The `magicpost` row of Cursor's MCP settings shows the number of tools
+    loaded: up to {/* tools:count */}108{/* /tools:count */}, fewer if your account manages no member of an organisation (see [what your client lists](/mcp/overview#what-your-client-lists)).
   </Step>
 </Steps>
 
-## Option B — stdio bridge (Cursor < 0.46)
-
-Same `mcp-remote` flow as [Claude Desktop](/mcp/setup-claude-desktop) — edit
-`~/.cursor/mcp.json`:
-
-```json
-{
-  "mcpServers": {
-    "magicpost": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "mcp-remote",
-        "https://mcp.magicpost.in/mcp",
-        "--header",
-        "Authorization:Bearer mp_YOUR_TOKEN"
-      ]
-    }
-  }
-}
-```
+In MagicPost, **Settings → API & MCP → Connect a tool → Cursor** gives the same
+block, ready to copy.
 
 ## Use it from the chat
 
-Open the Cursor chat (`Cmd+L`), make sure **Composer + agent mode** is
-enabled, and ask:
+Open the Cursor chat in agent mode and ask:
 
 ```
 Summarize my MagicPost LinkedIn analytics for the last 30 days
 ```
 
-Cursor will prompt to approve the `get_metrics_summary` tool call (you can
-auto-approve from the same Settings panel if you want).
+Cursor asks you to approve the `get_metrics_summary` tool call (you can
+auto-approve it from the MCP settings).
+
+Cursor's agent can read your local files, so it can attach one to a draft
+through the upload workflow: see [local files](/mcp/media-attachments#local-files).
+
+## Alternative: an API key
+
+To connect with a [MagicPost API key](/essentials/authentication#creating-a-token)
+instead of signing in, send it as a header:
+
+```json
+{
+  "mcpServers": {
+    "magicpost": {
+      "url": "https://mcp.magicpost.in/mcp",
+      "headers": {
+        "Authorization": "Bearer mp_YOUR_TOKEN"
+      }
+    }
+  }
+}
+```

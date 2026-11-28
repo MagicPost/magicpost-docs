@@ -292,6 +292,8 @@ COUNT_PAGES = [
     OVERVIEW,
     ROOT / "mcp" / "setup-cursor.mdx",
     ROOT / "mcp" / "setup-claude-desktop.mdx",
+    ROOT / "mcp" / "setup-other-assistants.mdx",
+    ROOT / "mcp" / "client-assistant.mdx",
 ]
 
 
